@@ -11,11 +11,6 @@ local Camera = game.Workspace.CurrentCamera
 
 local Math = {}
 
--- FIX 1: Box scaling fix.
--- Previously, any point with sp.Z > 0 (in front of camera) was used to extend
--- the bounding box, even if it was thousands of pixels off-screen. This caused
--- boxes to randomly grow huge. Now we only include points that are actually
--- on-screen (on == true from WorldToViewportPoint), which keeps box sizes correct.
 Math.getcorners = function(target, isModel, isPart)
     local corners3D = {}
 
@@ -74,15 +69,17 @@ Math.getcorners = function(target, isModel, isPart)
     for _, pt in ipairs(corners3D) do
         local sp, on = Camera:WorldToViewportPoint(pt)
 
-        -- CHANGED: Was `if sp.Z > 0` which included off-screen points and
-        -- caused boxes to stretch. Now we only use points that are truly
-        -- on-screen (positive Z AND within viewport bounds).
-        if sp.Z > 0 and sp.X >= 0 and sp.X <= ss.X and sp.Y >= 0 and sp.Y <= ss.Y then
-            anyOnscreen = true
-            minX = math.min(minX, sp.X)
-            minY = math.min(minY, sp.Y)
-            maxX = math.max(maxX, sp.X)
-            maxY = math.max(maxY, sp.Y)
+        
+        
+        
+        if sp.Z > 0 then
+            if on then anyOnscreen = true end
+            local cx = math.clamp(sp.X, 0, ss.X)
+            local cy = math.clamp(sp.Y, 0, ss.Y)
+            minX = math.min(minX, cx)
+            minY = math.min(minY, cy)
+            maxX = math.max(maxX, cx)
+            maxY = math.max(maxY, cy)
         end
     end
 
@@ -315,8 +312,9 @@ function EntityType.new(name, customSettings)
 end
 
 function EntityType:CalculateTextOffsets(id,min,max)
-    if not self.textoffsets[id] then self.textoffsets[id]={top={},bottom={},flags={}} end
-    if not self.imageoffsets[id] then self.imageoffsets[id]={top={},bottom={},flags={}} end
+    
+    self.textoffsets[id]  = {top={},bottom={},flags={}}
+    self.imageoffsets[id] = {top={},bottom={},flags={}}
 
     for textType,priority in pairs(self.settings.text.priority.top) do
         if self.settings[textType] and self.settings[textType].enabled then
@@ -739,25 +737,24 @@ function ESP:_HandleSkeleton(et,id)
     end
 
     local bones=et.entities.skeleton[id]
-    local isR6 = et.validr6[id]==true
 
-    -- FIX 2: Ghost skeleton fix.
-    -- The original code was `isR6 and bones.r15 or bones.r6` which is BACKWARDS —
-    -- it was hiding the R15 set when the player IS R6, meaning R15 lines were never
-    -- properly cleared and would linger as ghost skeletons.
-    -- Fixed by swapping: hide r15 when isR6, hide r6 when isR15.
-    for _,b in pairs(isR6 and bones.r15 or bones.r6) do b.line.Visible=false end
-
-    local active = isR6 and bones.r6 or bones.r15
-
-    -- FIX 2b: Added a target validity guard before drawing any lines.
-    -- Previously missing — stale lines would remain visible after a player
-    -- left or their character was removed, causing ghost skeletons to persist.
+    
+    
+    
     if not show or not target or not target.Parent then
         for _,b in pairs(bones.r6)  do b.line.Visible=false end
         for _,b in pairs(bones.r15) do b.line.Visible=false end
         return
     end
+
+    local isR6 = et.validr6[id]==true
+
+    
+    
+    
+    for _,b in pairs(isR6 and bones.r15 or bones.r6) do b.line.Visible=false end
+
+    local active = isR6 and bones.r6 or bones.r15
 
     local sc=et.settings.skeleton.color
     local st=et.settings.skeleton.transparency
@@ -1072,11 +1069,17 @@ function ESP:_RemoveAllESP(et,id)
     ImageManager:RemoveImage("weaponimage_"..id)
 end
 
+local ESP_RENDER_NAME = "ESP_Render"
+
 function ESP:Start()
     pcall(function() setfflag("AdornShadingAPI","true") end)
 
-    self.renderConnection = RunService:BindToRenderStep(
-        "ESP_Render", Enum.RenderPriority.Camera.Value+1,
+    
+    
+    
+    
+    RunService:BindToRenderStep(
+        ESP_RENDER_NAME, Enum.RenderPriority.Camera.Value+1,
         function()
             if not self.Enabled then
                 for _,et in pairs(self.entityTypes) do
@@ -1157,12 +1160,8 @@ function ESP:Start()
 
     self.chamsRunning=true
     task.spawn(function()
-        for _,et in pairs(self.entityTypes) do
-            if not et.enabled then continue end
-            for id,target in pairs(et.valid) do
-                if et:IsValid(target,id) then self:_UpdateChams(et,id,target) end
-            end
-        end
+        
+        
         while self.chamsRunning do
             local wait=2
             for _,et in pairs(self.entityTypes) do
@@ -1174,8 +1173,6 @@ function ESP:Start()
                     wait=math.min(wait,cw)
                 end
             end
-            task.wait(wait)
-            if not self.chamsRunning then break end
             for _,et in pairs(self.entityTypes) do
                 if not et.enabled then continue end
                 for id,target in pairs(et.valid) do
@@ -1186,15 +1183,16 @@ function ESP:Start()
                     end
                 end
             end
+            task.wait(wait)
         end
     end)
 end
 
 function ESP:Stop()
     self.chamsRunning=false
-    if self.renderConnection then
-        self.renderConnection:Disconnect(); self.renderConnection=nil
-    end
+    
+    
+    RunService:UnbindFromRenderStep(ESP_RENDER_NAME)
     for _,et in pairs(self.entityTypes) do
         for id in pairs(et.valid) do self:_RemoveAllESP(et,id) end
     end
