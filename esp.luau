@@ -2037,6 +2037,12 @@ end
 
 function ESP:_HandleBox(entityType, id, target)
     if not target or not target.Parent then
+        if entityType.entities.box[id] then
+            entityType.entities.box[id].Visible = false
+        end
+        if entityType.entities.boxoutline[id] then
+            entityType.entities.boxoutline[id].Visible = false
+        end
         return
     end
 
@@ -2044,12 +2050,23 @@ function ESP:_HandleBox(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local targetPos
-    if target:IsA("Model") then
-        targetPos = target:GetPivot().Position
-    elseif target:IsA("BasePart") then
-        targetPos = target.Position
-    else
+    local targetPos = nil
+    
+    pcall(function()
+        if target:IsA("Model") then
+            targetPos = target:GetPivot().Position
+        elseif target:IsA("BasePart") then
+            targetPos = target.Position
+        end
+    end)
+    
+    if not targetPos then
+        if entityType.entities.box[id] then
+            entityType.entities.box[id].Visible = false
+        end
+        if entityType.entities.boxoutline[id] then
+            entityType.entities.boxoutline[id].Visible = false
+        end
         return
     end
     
@@ -2148,12 +2165,22 @@ function ESP:_HandleSkeleton(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local targetPos
-    if target:IsA("Model") then
-        targetPos = target:GetPivot().Position
-    elseif target:IsA("BasePart") then
-        targetPos = target.Position
-    else
+    local targetPos = nil
+    
+    pcall(function()
+        if target:IsA("Model") then
+            targetPos = target:GetPivot().Position
+        elseif target:IsA("BasePart") then
+            targetPos = target.Position
+        end
+    end)
+    
+    if not targetPos then
+        if entityType.entities.skeleton[id] then
+            for _, bone in pairs(entityType.entities.skeleton[id]) do
+                if bone and bone.line then bone.line.Visible = false end
+            end
+        end
         return
     end
     
@@ -2185,12 +2212,20 @@ function ESP:_HandleImageBox(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local targetPos
-    if target:IsA("Model") then
-        targetPos = target:GetPivot().Position
-    elseif target:IsA("BasePart") then
-        targetPos = target.Position
-    else
+    local targetPos = nil
+    
+    pcall(function()
+        if target:IsA("Model") then
+            targetPos = target:GetPivot().Position
+        elseif target:IsA("BasePart") then
+            targetPos = target.Position
+        end
+    end)
+    
+    if not targetPos then
+        if entityType.entities.imagebox[id] then
+            entityType.entities.imagebox[id].Visible = false
+        end
         return
     end
     
