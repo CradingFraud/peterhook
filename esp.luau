@@ -341,7 +341,6 @@ function EntityType.new(name, custom)
     self.enabled  = true
     self.settings = DefaultSettings()
 
-    -- merge custom overrides
     if custom then
         for k, v in pairs(custom) do
             if self.settings[k] ~= nil then
@@ -354,7 +353,6 @@ function EntityType.new(name, custom)
         end
     end
 
-    -- build priority lookup
     local tp = self.settings.text.priority
     for tType, data in pairs(self.settings) do
         if type(data) == "table" and type(data.priority) == "number" then
@@ -364,7 +362,6 @@ function EntityType.new(name, custom)
         end
     end
 
-    -- drawing entity stores
     self.entities = {
         box={}, boxoutline={},
         healthbar={}, healthbarbackground={}, healthbartext={},
@@ -388,7 +385,6 @@ function EntityType.new(name, custom)
         end
     end
 
-    -- per-id state
     self.valid           = {}
     self.validr6         = {}
     self.isModel         = {}
@@ -477,9 +473,6 @@ function EntityType:IsValid(target, id)
     return not (hum and hum.Health <= 0)
 end
 
--- ════════════════════════════════════════════════════════════
---  WEAPON IMAGES TABLE
--- ════════════════════════════════════════════════════════════
 local heldItemImages = {
     ["Bruno's M4A1"]       = "rbxassetid://15574295393",
     ["Crossbow"]           = "rbxassetid://15305596532",
@@ -708,7 +701,6 @@ function ESP:UntrackAll(typeName)
     for id in pairs(et.valid) do self:Untrack(typeName, id) end
 end
 
--- ── Settings helpers ──────────────────────────────────────────
 function ESP:SetSetting(name, cat, k, v)
     local et = self.entityTypes[name]; if not et or not et.settings[cat] then return end
     et.settings[cat][k] = v
@@ -761,9 +753,6 @@ function ESP:SetDisplayName(name, id, newName)
     if et then et.displayNames[id] = newName end
 end
 
--- ════════════════════════════════════════════════════════════
---  DRAWING HELPERS
--- ════════════════════════════════════════════════════════════
 local function hideAll(et, id)
     local ents = et.entities
     for _, key in ipairs({"box","boxoutline","healthbar","healthbarbackground","healthbartext"}) do
@@ -1171,7 +1160,6 @@ function ESP:_HandleOOFArrows(et, id, target)
     arrow.Visible           = true
 end
 
--- ── Vischeck Image ───────────────────────────────────────────
 function ESP:_HandleVischeckImage(et, id, target)
     local s   = et.settings.vischeckimage
     local key = "vischeckimage_" .. id
