@@ -1777,13 +1777,13 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                     local RLL = rightLowerLeg and Camera:WorldToViewportPoint(rightLowerLeg.Position)
                     local RF = rightFoot and Camera:WorldToViewportPoint(rightFoot.Position)
 
-                    if H.Z > 0 and UT.Z > 0 then
+                    if H and UT and H.Z > 0 and UT.Z > 0 then
                         bones.Head_UpperTorso.line.From = Vector2.new(H.X, H.Y)
                         bones.Head_UpperTorso.line.To = Vector2.new(UT.X, UT.Y)
                         bones.Head_UpperTorso.line.Visible = true
                     else bones.Head_UpperTorso.line.Visible = false end
 
-                    if UT.Z > 0 and LT.Z > 0 then
+                    if UT and LT and UT.Z > 0 and LT.Z > 0 then
                         bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
                         bones.UpperTorso_LowerTorso.line.To = Vector2.new(LT.X, LT.Y)
                         bones.UpperTorso_LowerTorso.line.Visible = true
