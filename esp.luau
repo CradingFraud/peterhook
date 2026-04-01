@@ -1483,13 +1483,18 @@ function ESP:_UpdateText(entityType, id, textType, min, max, onscreen)
 
         if textType == "distance" and character then
             local target = entityType.valid[id]
-            local targetPos
-            if target:IsA("Model") then
-                targetPos = target:GetPivot().Position
-            elseif target:IsA("BasePart") then
-                targetPos = target.Position
-            else
-                targetPos = target.Position
+            local targetPos = nil
+            
+            pcall(function()
+                if target:IsA("Model") then
+                    targetPos = target:GetPivot().Position
+                elseif target:IsA("BasePart") then
+                    targetPos = target.Position
+                end
+            end)
+            
+            if not targetPos then
+                targetPos = Vector3.new(0, 0, 0)
             end
             local distance = (character:GetPivot().Position - targetPos).Magnitude
             distance = math.round(distance)
@@ -2255,17 +2260,23 @@ function ESP:_HandleOOFArrows(entityType, id, target)
         return
     end
 
-    local targetPos
-    if entityType.isPart[id] then
-        targetPos = target.Position
-    else
-        local hrp = target:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            local arrow = ImageManager:GetImage("oofarrow_" .. id)
-            if arrow then arrow.Visible = false end
-            return
+    local targetPos = nil
+    
+    pcall(function()
+        if entityType.isPart[id] then
+            targetPos = target.Position
+        else
+            local hrp = target:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                targetPos = hrp.Position
+            end
         end
-        targetPos = hrp.Position
+    end)
+    
+    if not targetPos then
+        local arrow = ImageManager:GetImage("oofarrow_" .. id)
+        if arrow then arrow.Visible = false end
+        return
     end
 
     if not character or not character:FindFirstChild("HumanoidRootPart") then
