@@ -2036,11 +2036,23 @@ function ESP:_RemoveAllESP(entityType, id)
 end
 
 function ESP:_HandleBox(entityType, id, target)
+    if not target or not target.Parent then
+        return
+    end
+
     local min = entityType.mins[id]
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local targetPos = target:IsA("Model") and target:GetPivot().Position or target.Position
+    local targetPos
+    if target:IsA("Model") then
+        targetPos = target:GetPivot().Position
+    elseif target:IsA("BasePart") then
+        targetPos = target.Position
+    else
+        return
+    end
+    
     local distance = (targetPos - Camera.CFrame.Position).Magnitude
     local tooFar = distance > 300
 
@@ -2128,11 +2140,23 @@ function ESP:_HandleHealthbar(entityType, id, target)
 end
 
 function ESP:_HandleSkeleton(entityType, id, target)
+    if not target or not target.Parent then
+        return
+    end
+
     local min = entityType.mins[id]
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local targetPos = target:IsA("Model") and target:GetPivot().Position or target.Position
+    local targetPos
+    if target:IsA("Model") then
+        targetPos = target:GetPivot().Position
+    elseif target:IsA("BasePart") then
+        targetPos = target.Position
+    else
+        return
+    end
+    
     local distance = (targetPos - Camera.CFrame.Position).Magnitude
     local tooFar = distance > 300
 
@@ -2153,11 +2177,23 @@ function ESP:_HandleSkeleton(entityType, id, target)
 end
 
 function ESP:_HandleImageBox(entityType, id, target)
+    if not target or not target.Parent then
+        return
+    end
+
     local min = entityType.mins[id]
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local targetPos = target:IsA("Model") and target:GetPivot().Position or target.Position
+    local targetPos
+    if target:IsA("Model") then
+        targetPos = target:GetPivot().Position
+    elseif target:IsA("BasePart") then
+        targetPos = target.Position
+    else
+        return
+    end
+    
     local distance = (targetPos - Camera.CFrame.Position).Magnitude
     local tooFar = distance > 300
 
