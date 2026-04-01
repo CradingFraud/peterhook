@@ -91,7 +91,9 @@ Math.getboundingbox = function(instances: {BasePart}, orientation: CFrame?)
     return centerWorld, size
 end
 Math.getcorners = function(target, isModel, isPart)
-    local children
+    local minX, minY = math.huge, math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    local anyOnscreen = false
 
     if isPart then
         local part = target
@@ -99,115 +101,60 @@ Math.getcorners = function(target, isModel, isPart)
             return {x = 0, y = 0}, {x = 0, y = 0}, false
         end
 
-        local cf = part.CFrame
-        local size = part.Size
-        local half = size / 2
-        local pos = cf.Position
-
-        local corners = {
-            pos + Vector3.new(-half.X, -half.Y, -half.Z),
-            pos + Vector3.new(half.X, -half.Y, -half.Z),
-            pos + Vector3.new(-half.X, half.Y, -half.Z),
-            pos + Vector3.new(half.X, half.Y, -half.Z),
-            pos + Vector3.new(-half.X, -half.Y, half.Z),
-            pos + Vector3.new(half.X, -half.Y, half.Z),
-            pos + Vector3.new(-half.X, half.Y, half.Z),
-            pos + Vector3.new(half.X, half.Y, half.Z)
-        }
-
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        local anyOnscreen = false
-
-        for _, corner in pairs(corners) do
-            local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
-            if onscreen then
-                anyOnscreen = true
-            end
-            minX = math.min(minX, screenPos.X)
-            minY = math.min(minY, screenPos.Y)
-            maxX = math.max(maxX, screenPos.X)
-            maxY = math.max(maxY, screenPos.Y)
+        local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
+        if screenPos.Z > 0 then
+            minX = screenPos.X
+            maxX = screenPos.X
+            minY = screenPos.Y
+            maxY = screenPos.Y
+            anyOnscreen = onscreen
         end
 
         return {x = minX, y = minY}, {x = maxX, y = maxY}, anyOnscreen
     end
 
+    local partsToProject = {}
+    
     if isModel then
-        children = target:GetDescendants()
-        local parts = {}
-        local handParts = {LeftHand=true, RightHand=true, LeftLowerArm=true, RightLowerArm=true, LeftUpperArm=true, RightUpperArm=true}
+        local children = target:GetDescendants()
         for _, v in pairs(children) do
-            if v:IsA("BasePart") and not handParts[v.Name] and v.Transparency < 1 then
-                table.insert(parts, v)
+            if v:IsA("BasePart") and v.Transparency < 1 and v.Name ~= "Handle" and not v:FindFirstAncestorOfClass("Accessory") then
+                table.insert(partsToProject, v)
             end
         end
-        children = parts
     else
-        children = target:GetChildren()
-    end
-
-    local centerWorld, size = Math.getboundingbox(children)
-    
-    if (size.X == 0 or size.Y == 0 or size.Z == 0) and #children > 0 then
-        local firstValid = children[1]
-        for _, v in ipairs(children) do
-            if v and v.Parent then
-                firstValid = v
-                break
+        local children = target:GetChildren()
+        for _, v in pairs(children) do
+            if v:IsA("BasePart") then
+                table.insert(partsToProject, v)
             end
         end
-        if firstValid then
-            centerWorld = firstValid.CFrame
-            size = firstValid.Size
-        end
-    end
-    
-    local half = size/2
-    local pos = centerWorld.Position
-
-    local corners = {
-        pos + Vector3.new(-half.X, -half.Y, -half.Z),
-        pos + Vector3.new(half.X, -half.Y, -half.Z),
-        pos + Vector3.new(-half.X, half.Y, -half.Z),
-        pos + Vector3.new(half.X, half.Y, -half.Z),
-        pos + Vector3.new(-half.X, -half.Y, half.Z),
-        pos + Vector3.new(half.X, -half.Y, half.Z),
-        pos + Vector3.new(-half.X, half.Y, half.Z),
-        pos + Vector3.new(half.X, half.Y, half.Z)
-    }
-
-    local minX, minY = math.huge, math.huge
-    local maxX, maxY = -math.huge, -math.huge
-    local anyOnscreen = false
-
-    for _, corner in pairs(corners) do
-        local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
-        if screenPos.Z > 0 then
-            if onscreen then
-                anyOnscreen = true
-            end
-            minX = math.min(minX, screenPos.X)
-            minY = math.min(minY, screenPos.Y)
-            maxX = math.max(maxX, screenPos.X)
-            maxY = math.max(maxY, screenPos.Y)
-        end
     end
 
-    local min = {
-        x = minX,
-        y = minY
-    }
-    local max = {
-        x = maxX,
-        y = maxY
-    }
-
-    if minX == math.huge or maxX == -math.huge or minY == math.huge or maxY == -math.huge then
+    if #partsToProject == 0 then
         return {x = 0, y = 0}, {x = 0, y = 0}, false
     end
 
-    return min, max, anyOnscreen
+    for _, part in ipairs(partsToProject) do
+        if part and part.Parent then
+            local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
+            if screenPos.Z > 0 then
+                if onscreen then
+                    anyOnscreen = true
+                end
+                minX = math.min(minX, screenPos.X)
+                minY = math.min(minY, screenPos.Y)
+                maxX = math.max(maxX, screenPos.X)
+                maxY = math.max(maxY, screenPos.Y)
+            end
+        end
+    end
+
+    if minX == math.huge or maxX == -math.huge then
+        return {x = 0, y = 0}, {x = 0, y = 0}, false
+    end
+
+    return {x = minX, y = minY}, {x = maxX, y = maxY}, anyOnscreen
 end
 
 local ImageManager = {}
