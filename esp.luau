@@ -42,10 +42,10 @@ Math.getboundingbox = function(instances: {BasePart}, orientation: CFrame?)
     local pivot = orientation or CFrame.new()
     local firstPart = nil
 
-    local handParts = {LeftHand=true, RightHand=true, LeftLowerArm=true, RightLowerArm=true}
+    local handParts = {LeftHand=true, RightHand=true, LeftLowerArm=true, RightLowerArm=true, LeftUpperArm=true, RightUpperArm=true}
 
     for _, part in ipairs(instances) do
-        if part:IsA("BasePart") and not handParts[part.Name] then
+        if part:IsA("BasePart") and not handParts[part.Name] and part.Transparency < 1 then
             if not firstPart then
                 firstPart = part
                 pivot = CFrame.new(part.Position) * (orientation or CFrame.new())
@@ -136,8 +136,9 @@ Math.getcorners = function(target, isModel, isPart)
     if isModel then
         children = target:GetDescendants()
         local parts = {}
+        local handParts = {LeftHand=true, RightHand=true, LeftLowerArm=true, RightLowerArm=true, LeftUpperArm=true, RightUpperArm=true}
         for _, v in pairs(children) do
-            if v:IsA("BasePart") then
+            if v:IsA("BasePart") and not handParts[v.Name] and v.Transparency < 1 then
                 table.insert(parts, v)
             end
         end
@@ -147,6 +148,21 @@ Math.getcorners = function(target, isModel, isPart)
     end
 
     local centerWorld, size = Math.getboundingbox(children)
+    
+    if (size.X == 0 or size.Y == 0 or size.Z == 0) and #children > 0 then
+        local firstValid = children[1]
+        for _, v in ipairs(children) do
+            if v and v.Parent then
+                firstValid = v
+                break
+            end
+        end
+        if firstValid then
+            centerWorld = firstValid.CFrame
+            size = firstValid.Size
+        end
+    end
+    
     local half = size/2
     local pos = centerWorld.Position
 
@@ -1629,49 +1645,80 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                 local rightLeg = target:FindFirstChild('Right Leg')
 
                 if head and torso and leftArm and rightArm and leftLeg and rightLeg then
-                    local H = Camera:WorldToViewportPoint(head.Position)
-                    local UT = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, torso.Size.Y/4, 0)).Position)
-                    local LT = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, -torso.Size.Y/4, 0)).Position)
+                    local H, H_onscreen = Camera:WorldToViewportPoint(head.Position)
+                    local UT, UT_onscreen = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, torso.Size.Y/4, 0)).Position)
+                    local LT, LT_onscreen = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, -torso.Size.Y/4, 0)).Position)
 
                     local LA_Height = leftArm.Size.Y/2 - 0.2
-                    local LUA = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, LA_Height, 0)).Position)
-                    local LLA = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, -LA_Height, 0)).Position)
+                    local LUA, LUA_onscreen = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, LA_Height, 0)).Position)
+                    local LLA, LLA_onscreen = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, -LA_Height, 0)).Position)
 
                     local RA_Height = rightArm.Size.Y/2 - 0.2
-                    local RUA = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, RA_Height, 0)).Position)
-                    local RLA = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, -RA_Height, 0)).Position)
+                    local RUA, RUA_onscreen = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, RA_Height, 0)).Position)
+                    local RLA, RLA_onscreen = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, -RA_Height, 0)).Position)
 
                     local LL_Height = leftLeg.Size.Y/2 - 0.2
-                    local LUL = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, LL_Height, 0)).Position)
-                    local LLL = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, -LL_Height, 0)).Position)
+                    local LUL, LUL_onscreen = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, LL_Height, 0)).Position)
+                    local LLL, LLL_onscreen = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, -LL_Height, 0)).Position)
 
                     local RL_Height = rightLeg.Size.Y/2 - 0.2
-                    local RUL = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, RL_Height, 0)).Position)
-                    local RLL = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, -RL_Height, 0)).Position)
+                    local RUL, RUL_onscreen = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, RL_Height, 0)).Position)
+                    local RLL, RLL_onscreen = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, -RL_Height, 0)).Position)
 
-                    bones.Head_Spine.line.From = Vector2.new(H.X, H.Y)
-                    bones.Head_Spine.line.To = Vector2.new(UT.X, UT.Y)
-                    bones.Spine.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.Spine.line.To = Vector2.new(LT.X, LT.Y)
-                    bones.LeftArm.line.From = Vector2.new(LUA.X, LUA.Y)
-                    bones.LeftArm.line.To = Vector2.new(LLA.X, LLA.Y)
-                    bones.LeftArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.LeftArm_UpperTorso.line.To = Vector2.new(LUA.X, LUA.Y)
-                    bones.RightArm.line.From = Vector2.new(RUA.X, RUA.Y)
-                    bones.RightArm.line.To = Vector2.new(RLA.X, RLA.Y)
-                    bones.RightArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.RightArm_UpperTorso.line.To = Vector2.new(RUA.X, RUA.Y)
-                    bones.LeftLeg.line.From = Vector2.new(LUL.X, LUL.Y)
-                    bones.LeftLeg.line.To = Vector2.new(LLL.X, LLL.Y)
-                    bones.LeftLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
-                    bones.LeftLeg_LowerTorso.line.To = Vector2.new(LUL.X, LUL.Y)
-                    bones.RightLeg.line.From = Vector2.new(RUL.X, RUL.Y)
-                    bones.RightLeg.line.To = Vector2.new(RLL.X, RLL.Y)
-                    bones.RightLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
-                    bones.RightLeg_LowerTorso.line.To = Vector2.new(RUL.X, RUL.Y)
+                    if H.Z > 0 and UT.Z > 0 then
+                        bones.Head_Spine.line.From = Vector2.new(H.X, H.Y)
+                        bones.Head_Spine.line.To = Vector2.new(UT.X, UT.Y)
+                    else bones.Head_Spine.line.Visible = false end
+                    
+                    if UT.Z > 0 and LT.Z > 0 then
+                        bones.Spine.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.Spine.line.To = Vector2.new(LT.X, LT.Y)
+                    else bones.Spine.line.Visible = false end
+                    
+                    if LUA.Z > 0 and LLA.Z > 0 then
+                        bones.LeftArm.line.From = Vector2.new(LUA.X, LUA.Y)
+                        bones.LeftArm.line.To = Vector2.new(LLA.X, LLA.Y)
+                    else bones.LeftArm.line.Visible = false end
+                    
+                    if UT.Z > 0 and LUA.Z > 0 then
+                        bones.LeftArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.LeftArm_UpperTorso.line.To = Vector2.new(LUA.X, LUA.Y)
+                    else bones.LeftArm_UpperTorso.line.Visible = false end
+                    
+                    if RUA.Z > 0 and RLA.Z > 0 then
+                        bones.RightArm.line.From = Vector2.new(RUA.X, RUA.Y)
+                        bones.RightArm.line.To = Vector2.new(RLA.X, RLA.Y)
+                    else bones.RightArm.line.Visible = false end
+                    
+                    if UT.Z > 0 and RUA.Z > 0 then
+                        bones.RightArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.RightArm_UpperTorso.line.To = Vector2.new(RUA.X, RUA.Y)
+                    else bones.RightArm_UpperTorso.line.Visible = false end
+                    
+                    if LUL.Z > 0 and LLL.Z > 0 then
+                        bones.LeftLeg.line.From = Vector2.new(LUL.X, LUL.Y)
+                        bones.LeftLeg.line.To = Vector2.new(LLL.X, LLL.Y)
+                    else bones.LeftLeg.line.Visible = false end
+                    
+                    if LT.Z > 0 and LUL.Z > 0 then
+                        bones.LeftLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
+                        bones.LeftLeg_LowerTorso.line.To = Vector2.new(LUL.X, LUL.Y)
+                    else bones.LeftLeg_LowerTorso.line.Visible = false end
+                    
+                    if RUL.Z > 0 and RLL.Z > 0 then
+                        bones.RightLeg.line.From = Vector2.new(RUL.X, RUL.Y)
+                        bones.RightLeg.line.To = Vector2.new(RLL.X, RLL.Y)
+                    else bones.RightLeg.line.Visible = false end
+                    
+                    if LT.Z > 0 and RUL.Z > 0 then
+                        bones.RightLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
+                        bones.RightLeg_LowerTorso.line.To = Vector2.new(RUL.X, RUL.Y)
+                    else bones.RightLeg_LowerTorso.line.Visible = false end
 
                     for i, v in pairs(bones) do
-                        v.line.Visible = true
+                        if v.line.From ~= Vector2.new(0,0) and v.line.To ~= Vector2.new(0,0) then
+                            v.line.Visible = true
+                        end
                     end
                 else
                     for i, v in pairs(bones) do
@@ -1710,9 +1757,9 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                 local rightFoot = target:FindFirstChild('RightFoot')
 
                 if head and upperTorso and lowerTorso then
-                    local H = Camera:WorldToViewportPoint(head.Position)
-                    local UT = Camera:WorldToViewportPoint(upperTorso.Position)
-                    local LT = Camera:WorldToViewportPoint(lowerTorso.Position)
+                    local H, H_onscreen = Camera:WorldToViewportPoint(head.Position)
+                    local UT, UT_onscreen = Camera:WorldToViewportPoint(upperTorso.Position)
+                    local LT, LT_onscreen = Camera:WorldToViewportPoint(lowerTorso.Position)
 
                     local LUA = leftUpperArm and Camera:WorldToViewportPoint(leftUpperArm.Position)
                     local LLA = leftLowerArm and Camera:WorldToViewportPoint(leftLowerArm.Position)
@@ -1730,49 +1777,80 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                     local RLL = rightLowerLeg and Camera:WorldToViewportPoint(rightLowerLeg.Position)
                     local RF = rightFoot and Camera:WorldToViewportPoint(rightFoot.Position)
 
-                    bones.Head_UpperTorso.line.From = Vector2.new(H.X, H.Y)
-                    bones.Head_UpperTorso.line.To = Vector2.new(UT.X, UT.Y)
-                    bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.UpperTorso_LowerTorso.line.To = Vector2.new(LT.X, LT.Y)
+                    if H.Z > 0 and UT.Z > 0 then
+                        bones.Head_UpperTorso.line.From = Vector2.new(H.X, H.Y)
+                        bones.Head_UpperTorso.line.To = Vector2.new(UT.X, UT.Y)
+                        bones.Head_UpperTorso.line.Visible = true
+                    else bones.Head_UpperTorso.line.Visible = false end
 
-                    if LUA and LLA and LH then
+                    if UT.Z > 0 and LT.Z > 0 then
+                        bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.UpperTorso_LowerTorso.line.To = Vector2.new(LT.X, LT.Y)
+                        bones.UpperTorso_LowerTorso.line.Visible = true
+                    else bones.UpperTorso_LowerTorso.line.Visible = false end
+
+                    if LUA and LLA and LH and LUA.Z > 0 and LLA.Z > 0 and LH.Z > 0 then
                         bones.UpperTorso_LeftUpperArm.line.From = Vector2.new(UT.X, UT.Y)
                         bones.UpperTorso_LeftUpperArm.line.To = Vector2.new(LUA.X, LUA.Y)
+                        bones.UpperTorso_LeftUpperArm.line.Visible = true
                         bones.LeftUpperArm_LeftLowerArm.line.From = Vector2.new(LUA.X, LUA.Y)
                         bones.LeftUpperArm_LeftLowerArm.line.To = Vector2.new(LLA.X, LLA.Y)
+                        bones.LeftUpperArm_LeftLowerArm.line.Visible = true
                         bones.LeftLowerArm_LeftHand.line.From = Vector2.new(LLA.X, LLA.Y)
                         bones.LeftLowerArm_LeftHand.line.To = Vector2.new(LH.X, LH.Y)
+                        bones.LeftLowerArm_LeftHand.line.Visible = true
+                    else
+                        bones.UpperTorso_LeftUpperArm.line.Visible = false
+                        bones.LeftUpperArm_LeftLowerArm.line.Visible = false
+                        bones.LeftLowerArm_LeftHand.line.Visible = false
                     end
 
-                    if RUA and RLA and RH then
+                    if RUA and RLA and RH and RUA.Z > 0 and RLA.Z > 0 and RH.Z > 0 then
                         bones.UpperTorso_RightUpperArm.line.From = Vector2.new(UT.X, UT.Y)
                         bones.UpperTorso_RightUpperArm.line.To = Vector2.new(RUA.X, RUA.Y)
+                        bones.UpperTorso_RightUpperArm.line.Visible = true
                         bones.RightUpperArm_RightLowerArm.line.From = Vector2.new(RUA.X, RUA.Y)
                         bones.RightUpperArm_RightLowerArm.line.To = Vector2.new(RLA.X, RLA.Y)
+                        bones.RightUpperArm_RightLowerArm.line.Visible = true
                         bones.RightLowerArm_RightHand.line.From = Vector2.new(RLA.X, RLA.Y)
                         bones.RightLowerArm_RightHand.line.To = Vector2.new(RH.X, RH.Y)
+                        bones.RightLowerArm_RightHand.line.Visible = true
+                    else
+                        bones.UpperTorso_RightUpperArm.line.Visible = false
+                        bones.RightUpperArm_RightLowerArm.line.Visible = false
+                        bones.RightLowerArm_RightHand.line.Visible = false
                     end
 
-                    if LUL and LLL and LF then
+                    if LUL and LLL and LF and LUL.Z > 0 and LLL.Z > 0 and LF.Z > 0 then
                         bones.LowerTorso_LeftUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
                         bones.LowerTorso_LeftUpperLeg.line.To = Vector2.new(LUL.X, LUL.Y)
+                        bones.LowerTorso_LeftUpperLeg.line.Visible = true
                         bones.LeftUpperLeg_LeftLowerLeg.line.From = Vector2.new(LUL.X, LUL.Y)
                         bones.LeftUpperLeg_LeftLowerLeg.line.To = Vector2.new(LLL.X, LLL.Y)
+                        bones.LeftUpperLeg_LeftLowerLeg.line.Visible = true
                         bones.LeftLowerLeg_LeftFoot.line.From = Vector2.new(LLL.X, LLL.Y)
                         bones.LeftLowerLeg_LeftFoot.line.To = Vector2.new(LF.X, LF.Y)
+                        bones.LeftLowerLeg_LeftFoot.line.Visible = true
+                    else
+                        bones.LowerTorso_LeftUpperLeg.line.Visible = false
+                        bones.LeftUpperLeg_LeftLowerLeg.line.Visible = false
+                        bones.LeftLowerLeg_LeftFoot.line.Visible = false
                     end
 
-                    if RUL and RLL and RF then
+                    if RUL and RLL and RF and RUL.Z > 0 and RLL.Z > 0 and RF.Z > 0 then
                         bones.LowerTorso_RightUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
                         bones.LowerTorso_RightUpperLeg.line.To = Vector2.new(RUL.X, RUL.Y)
+                        bones.LowerTorso_RightUpperLeg.line.Visible = true
                         bones.RightUpperLeg_RightLowerLeg.line.From = Vector2.new(RUL.X, RUL.Y)
                         bones.RightUpperLeg_RightLowerLeg.line.To = Vector2.new(RLL.X, RLL.Y)
+                        bones.RightUpperLeg_RightLowerLeg.line.Visible = true
                         bones.RightLowerLeg_RightFoot.line.From = Vector2.new(RLL.X, RLL.Y)
                         bones.RightLowerLeg_RightFoot.line.To = Vector2.new(RF.X, RF.Y)
-                    end
-
-                    for i, v in pairs(bones) do
-                        v.line.Visible = true
+                        bones.RightLowerLeg_RightFoot.line.Visible = true
+                    else
+                        bones.LowerTorso_RightUpperLeg.line.Visible = false
+                        bones.RightUpperLeg_RightLowerLeg.line.Visible = false
+                        bones.RightLowerLeg_RightFoot.line.Visible = false
                     end
                 else
                     for i, v in pairs(bones) do
