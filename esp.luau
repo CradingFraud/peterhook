@@ -183,13 +183,15 @@ Math.getcorners = function(target, isModel, isPart)
 
     for _, corner in pairs(corners) do
         local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
-        if onscreen then
-            anyOnscreen = true
+        if screenPos.Z > 0 then
+            if onscreen then
+                anyOnscreen = true
+            end
+            minX = math.min(minX, screenPos.X)
+            minY = math.min(minY, screenPos.Y)
+            maxX = math.max(maxX, screenPos.X)
+            maxY = math.max(maxY, screenPos.Y)
         end
-        minX = math.min(minX, screenPos.X)
-        minY = math.min(minY, screenPos.Y)
-        maxX = math.max(maxX, screenPos.X)
-        maxY = math.max(maxY, screenPos.Y)
     end
 
     local min = {
@@ -200,6 +202,10 @@ Math.getcorners = function(target, isModel, isPart)
         x = maxX,
         y = maxY
     }
+
+    if minX == math.huge or maxX == -math.huge or minY == math.huge or maxY == -math.huge then
+        return {x = 0, y = 0}, {x = 0, y = 0}, false
+    end
 
     return min, max, anyOnscreen
 end
@@ -1226,12 +1232,12 @@ function ESP:_CreateBox(entityType, id, min, max, onscreen)
     box.Color = entityType.settings.box.color
     box.Thickness = entityType.settings.box.thickness
 
-    if onscreen then
+    if onscreen and min and max and min.x and min.y and max.x and max.y then
         local pos = Vector2.new(min.x, min.y)
         outline.Position = pos
         box.Position = pos
-        local length = max.x - min.x
-        local height = max.y - min.y
+        local length = math.max(4, max.x - min.x)
+        local height = math.max(4, max.y - min.y)
         outline.Size = Vector2.new(length, height)
         box.Size = Vector2.new(length, height)
     end
@@ -1435,8 +1441,8 @@ function ESP:_CreateImageBox(entityType, id, min, max, onscreen)
     img.ImageColor3 = entityType.settings.imagebox.color
     img.Visible = onscreen
 
-    if onscreen then
-        local size = Vector2.new(max.x - min.x, max.y - min.y)
+    if onscreen and min and max and min.x and min.y and max.x and max.y then
+        local size = Vector2.new(math.max(4, max.x - min.x), math.max(4, max.y - min.y))
         img.Size = UDim2.new(0, size.X, 0, size.Y)
         img.Position = UDim2.new(0, min.x, 0, min.y)
         img.AnchorPoint = Vector2.new(0, 0)
@@ -1455,7 +1461,7 @@ function ESP:_UpdateBox(entityType, id, min, max, onscreen)
 
     local isValid = entityType:IsValid(entityType.valid[id], id)
 
-    if onscreen and entityType.settings.box.enabled and isValid then
+    if onscreen and entityType.settings.box.enabled and isValid and min and max and min.x and min.y and max.x and max.y then
         box.Visible = true
         box.Transparency = entityType.settings.box.transparency
         box.Color = entityType.settings.box.color
@@ -1464,8 +1470,8 @@ function ESP:_UpdateBox(entityType, id, min, max, onscreen)
         local pos = Vector2.new(min.x, min.y)
         box.Position = pos
 
-        local length = max.x - min.x
-        local height = max.y - min.y
+        local length = math.max(4, max.x - min.x)
+        local height = math.max(4, max.y - min.y)
         local size = Vector2.new(length, height)
         box.Size = size
 
@@ -1882,10 +1888,11 @@ function ESP:_UpdateImageBox(entityType, id, min, max, onscreen)
     image.Visible = onscreen and entityType.settings.imagebox.enabled and isValid
 
     if onscreen and entityType.settings.imagebox.enabled and isValid then
-
-        local size = Vector2.new(max.x - min.x, max.y - min.y)
-        image.Size = UDim2.new(0, size.X, 0, size.Y)
-        image.Position = UDim2.new(0, min.x, 0, min.y)
+        if min and max and min.x and min.y and max.x and max.y then
+            local size = Vector2.new(math.max(4, max.x - min.x), math.max(4, max.y - min.y))
+            image.Size = UDim2.new(0, size.X, 0, size.Y)
+            image.Position = UDim2.new(0, min.x, 0, min.y)
+        end
     end
 end
 
