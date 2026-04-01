@@ -115,26 +115,37 @@ Math.getcorners = function(target, isModel, isPart)
 
     local partsToProject = {}
     
-    local armParts = {
-        LeftLowerArm=true, RightLowerArm=true, 
-        LeftUpperArm=true, RightUpperArm=true, 
-        LeftHand=true, RightHand=true
-    }
-    
     if isModel then
         local children = target:GetDescendants()
+        local head = nil
+        local torso = nil
+        local upperTorso = nil
+        local lowerTorso = nil
+        
         for _, v in pairs(children) do
-            if v:IsA("BasePart") and v.Transparency < 1 and v.Name ~= "Handle" and not armParts[v.Name] and not v:FindFirstAncestorOfClass("Accessory") then
-                table.insert(partsToProject, v)
+            if v:IsA("BasePart") then
+                if v.Name == "Head" then head = v
+                elseif v.Name == "Torso" then torso = v
+                elseif v.Name == "UpperTorso" then upperTorso = v
+                elseif v.Name == "LowerTorso" then lowerTorso = v end
             end
         end
+        
+        if head then table.insert(partsToProject, head) end
+        if torso then table.insert(partsToProject, torso) end
+        if upperTorso then table.insert(partsToProject, upperTorso) end
+        if lowerTorso then table.insert(partsToProject, lowerTorso) end
     else
         local children = target:GetChildren()
-        for _, v in pairs(children) do
-            if v:IsA("BasePart") and not armParts[v.Name] then
-                table.insert(partsToProject, v)
-            end
-        end
+        local head = target:FindFirstChild("Head")
+        local torso = target:FindFirstChild("Torso")
+        local upperTorso = target:FindFirstChild("UpperTorso")
+        local lowerTorso = target:FindFirstChild("LowerTorso")
+        
+        if head then table.insert(partsToProject, head) end
+        if torso then table.insert(partsToProject, torso) end
+        if upperTorso then table.insert(partsToProject, upperTorso) end
+        if lowerTorso then table.insert(partsToProject, lowerTorso) end
     end
 
     if #partsToProject == 0 then
@@ -1191,6 +1202,8 @@ function ESP:_CreateBox(entityType, id, min, max, onscreen)
         box.Position = pos
         local length = math.max(4, max.x - min.x)
         local height = math.max(4, max.y - min.y)
+        length = math.min(length, 500)
+        height = math.min(height, 500)
         outline.Size = Vector2.new(length, height)
         box.Size = Vector2.new(length, height)
     end
@@ -1425,6 +1438,8 @@ function ESP:_UpdateBox(entityType, id, min, max, onscreen)
 
         local length = math.max(4, max.x - min.x)
         local height = math.max(4, max.y - min.y)
+        length = math.min(length, 500)
+        height = math.min(height, 500)
         local size = Vector2.new(length, height)
         box.Size = size
 
