@@ -2040,7 +2040,8 @@ function ESP:_HandleBox(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local distance = (target.Position - Camera.CFrame.Position).Magnitude
+    local targetPos = target:IsA("Model") and target:GetPivot().Position or target.Position
+    local distance = (targetPos - Camera.CFrame.Position).Magnitude
     local tooFar = distance > 300
 
     if not entityType.settings.box.enabled or tooFar then
@@ -2131,7 +2132,8 @@ function ESP:_HandleSkeleton(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local distance = (target.Position - Camera.CFrame.Position).Magnitude
+    local targetPos = target:IsA("Model") and target:GetPivot().Position or target.Position
+    local distance = (targetPos - Camera.CFrame.Position).Magnitude
     local tooFar = distance > 300
 
     if not entityType.settings.skeleton.enabled or tooFar then
@@ -2155,7 +2157,8 @@ function ESP:_HandleImageBox(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    local distance = (target.Position - Camera.CFrame.Position).Magnitude
+    local targetPos = target:IsA("Model") and target:GetPivot().Position or target.Position
+    local distance = (targetPos - Camera.CFrame.Position).Magnitude
     local tooFar = distance > 300
 
     if not entityType.settings.imagebox.enabled or tooFar then
