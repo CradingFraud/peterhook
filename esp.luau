@@ -115,17 +115,23 @@ Math.getcorners = function(target, isModel, isPart)
 
     local partsToProject = {}
     
+    local armParts = {
+        LeftLowerArm=true, RightLowerArm=true, 
+        LeftUpperArm=true, RightUpperArm=true, 
+        LeftHand=true, RightHand=true
+    }
+    
     if isModel then
         local children = target:GetDescendants()
         for _, v in pairs(children) do
-            if v:IsA("BasePart") and v.Transparency < 1 and v.Name ~= "Handle" and not v:FindFirstAncestorOfClass("Accessory") then
+            if v:IsA("BasePart") and v.Transparency < 1 and v.Name ~= "Handle" and not armParts[v.Name] and not v:FindFirstAncestorOfClass("Accessory") then
                 table.insert(partsToProject, v)
             end
         end
     else
         local children = target:GetChildren()
         for _, v in pairs(children) do
-            if v:IsA("BasePart") then
+            if v:IsA("BasePart") and not armParts[v.Name] then
                 table.insert(partsToProject, v)
             end
         end
@@ -2019,7 +2025,10 @@ function ESP:_HandleBox(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    if not entityType.settings.box.enabled then
+    local distance = (target.Position - Camera.CFrame.Position).Magnitude
+    local tooFar = distance > 300
+
+    if not entityType.settings.box.enabled or tooFar then
         if entityType.entities.box[id] then
             entityType.entities.box[id].Visible = false
         end
@@ -2107,7 +2116,10 @@ function ESP:_HandleSkeleton(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    if not entityType.settings.skeleton.enabled then
+    local distance = (target.Position - Camera.CFrame.Position).Magnitude
+    local tooFar = distance > 300
+
+    if not entityType.settings.skeleton.enabled or tooFar then
         if entityType.entities.skeleton[id] then
             for _, bone in pairs(entityType.entities.skeleton[id]) do
                 if bone and bone.line then bone.line.Visible = false end
@@ -2128,7 +2140,10 @@ function ESP:_HandleImageBox(entityType, id, target)
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    if not entityType.settings.imagebox.enabled then
+    local distance = (target.Position - Camera.CFrame.Position).Magnitude
+    local tooFar = distance > 300
+
+    if not entityType.settings.imagebox.enabled or tooFar then
         if entityType.entities.imagebox[id] then
             entityType.entities.imagebox[id].Visible = false
         end
