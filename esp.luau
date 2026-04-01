@@ -101,15 +101,34 @@ Math.getcorners = function(target, isModel, isPart)
             return {x = 0, y = 0}, {x = 0, y = 0}, false
         end
 
-        local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
-        if screenPos.Z > 0 then
-            minX = screenPos.X
-            maxX = screenPos.X
-            minY = screenPos.Y
-            maxY = screenPos.Y
-            anyOnscreen = onscreen
+        local size = part.Size / 2
+        local cf = part.CFrame
+        
+        local corners = {
+            cf * Vector3.new(-size.X, -size.Y, -size.Z),
+            cf * Vector3.new(size.X, -size.Y, -size.Z),
+            cf * Vector3.new(-size.X, size.Y, -size.Z),
+            cf * Vector3.new(size.X, size.Y, -size.Z),
+            cf * Vector3.new(-size.X, -size.Y, size.Z),
+            cf * Vector3.new(size.X, -size.Y, size.Z),
+            cf * Vector3.new(-size.X, size.Y, size.Z),
+            cf * Vector3.new(size.X, size.Y, size.Z),
+        }
+        
+        for _, corner in ipairs(corners) do
+            local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
+            if screenPos.Z > 0 then
+                if onscreen then anyOnscreen = true end
+                minX = math.min(minX, screenPos.X)
+                minY = math.min(minY, screenPos.Y)
+                maxX = math.max(maxX, screenPos.X)
+                maxY = math.max(maxY, screenPos.Y)
+            end
         end
 
+        if minX == math.huge then
+            return {x = 0, y = 0}, {x = 0, y = 0}, false
+        end
         return {x = minX, y = minY}, {x = maxX, y = maxY}, anyOnscreen
     end
 
@@ -154,15 +173,29 @@ Math.getcorners = function(target, isModel, isPart)
 
     for _, part in ipairs(partsToProject) do
         if part and part.Parent then
-            local screenPos, onscreen = Camera:WorldToViewportPoint(part.Position)
-            if screenPos.Z > 0 then
-                if onscreen then
-                    anyOnscreen = true
+            local size = part.Size / 2
+            local cf = part.CFrame
+            
+            local corners = {
+                cf * Vector3.new(-size.X, -size.Y, -size.Z),
+                cf * Vector3.new(size.X, -size.Y, -size.Z),
+                cf * Vector3.new(-size.X, size.Y, -size.Z),
+                cf * Vector3.new(size.X, size.Y, -size.Z),
+                cf * Vector3.new(-size.X, -size.Y, size.Z),
+                cf * Vector3.new(size.X, -size.Y, size.Z),
+                cf * Vector3.new(-size.X, size.Y, size.Z),
+                cf * Vector3.new(size.X, size.Y, size.Z),
+            }
+            
+            for _, corner in ipairs(corners) do
+                local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
+                if screenPos.Z > 0 then
+                    if onscreen then anyOnscreen = true end
+                    minX = math.min(minX, screenPos.X)
+                    minY = math.min(minY, screenPos.Y)
+                    maxX = math.max(maxX, screenPos.X)
+                    maxY = math.max(maxY, screenPos.Y)
                 end
-                minX = math.min(minX, screenPos.X)
-                minY = math.min(minY, screenPos.Y)
-                maxX = math.max(maxX, screenPos.X)
-                maxY = math.max(maxY, screenPos.Y)
             end
         end
     end
