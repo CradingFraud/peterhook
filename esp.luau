@@ -6,7 +6,6 @@ local CoreGui    = game:GetService("CoreGui")
 local lp        = Players.LocalPlayer
 local Camera    = workspace.CurrentCamera
 
--- ── local aliases ────────────────────────────────────────────
 local mhuge  = math.huge
 local mmin   = math.min
 local mmax   = math.max
@@ -20,21 +19,34 @@ local V2     = Vector2.new
 local V3     = Vector3.new
 local CF     = CFrame.new
 
--- ── local player character tracking ──────────────────────────
 local localChar = lp.Character
 lp.CharacterAdded:Connect(function(c) localChar = c end)
 
--- ════════════════════════════════════════════════════════════
---  MATH HELPERS
--- ════════════════════════════════════════════════════════════
 local Math = {}
 
---[[
-    Returns the 2-D screen bounding box for a target.
-    Only on-screen corners (Z > 0) that fall within viewport
-    bounds are counted – no clamping, no edge-piling.
-    Returns min {x,y}, max {x,y}, anyOnScreen bool.
-]]
+local CoreBodyParts = {
+    "Head", "Torso", "HumanoidRootPart",
+    "UpperTorso", "LowerTorso", "UpperLeftArm", "UpperRightArm"
+}
+
+local HandParts = {
+    "LeftHand", "RightHand", "LeftLowerArm", "RightLowerArm"
+}
+
+local function isHandPart(name)
+    for _, v in ipairs(HandParts) do
+        if name:find(v) then return true end
+    end
+    return false
+end
+
+local function isCorePart(name)
+    for _, v in ipairs(CoreBodyParts) do
+        if name == v then return true end
+    end
+    return false
+end
+
 function Math.GetCorners(target, isModel, isPart)
     local minX, minY =  mhuge,  mhuge
     local maxX, maxY = -mhuge, -mhuge
@@ -54,7 +66,7 @@ function Math.GetCorners(target, isModel, isPart)
                     local wy = p.Y + rx.Y*hx*sx + uy.Y*hy*sy + lz.Y*hz*sz
                     local wz = p.Z + rx.Z*hx*sx + uy.Z*hy*sy + lz.Z*hz*sz
                     local sp, onScreen = Camera:WorldToViewportPoint(V3(wx, wy, wz))
-                    if sp.Z <= 0 then continue end          -- behind camera → skip
+                    if sp.Z <= 0 then continue end
                     local cx, cy = sp.X, sp.Y
                     if onScreen then anyOn = true end
                     if cx >= 0 and cx <= vpX and cy >= 0 and cy <= vpY then
@@ -75,21 +87,33 @@ function Math.GetCorners(target, isModel, isPart)
         end
         processPart(part.CFrame, part.Size.X*.5, part.Size.Y*.5, part.Size.Z*.5)
     else
-        local parts = {}
+        local coreParts = {}
+        local otherParts = {}
         local desc  = isModel and target:GetDescendants() or target:GetChildren()
+        
         for _, v in ipairs(desc) do
             if v:IsA("BasePart") and v.Transparency < 1
                 and v.Name ~= "Handle"
                 and not v:FindFirstAncestorOfClass("Accessory")
             then
-                parts[#parts+1] = v
+                if isCorePart(v.Name) then
+                    coreParts[#coreParts+1] = v
+                elseif not isHandPart(v.Name) then
+                    otherParts[#otherParts+1] = v
+                end
             end
         end
+        
+        local parts = {}
+        for i = 1, #coreParts do parts[#parts+1] = coreParts[i] end
+        for i = 1, #otherParts do parts[#parts+1] = otherParts[i] end
+        
         if #parts == 0 then
             for _, v in ipairs(desc) do
-                if v:IsA("BasePart") then parts[#parts+1] = v end
+                if v:IsA("BasePart") and v.Name ~= "Handle" then parts[#parts+1] = v end
             end
         end
+        
         if #parts == 0 then return {x=0,y=0}, {x=0,y=0}, false end
         for i = 1, #parts do
             local pt = parts[i]
@@ -97,9 +121,7 @@ function Math.GetCorners(target, isModel, isPart)
         end
     end
 
-    -- no corners landed on screen
     if minX == mhuge then return {x=0,y=0}, {x=0,y=0}, false end
-    -- degenerate (edge-on / very far) – skip boxes smaller than 4 px
     if (maxX - minX) < 4 or (maxY - minY) < 4 then
         return {x=0,y=0}, {x=0,y=0}, false
     end
@@ -107,7 +129,6 @@ function Math.GetCorners(target, isModel, isPart)
     return {x=minX, y=minY}, {x=maxX, y=maxY}, anyOn
 end
 
--- Health → Color3 (green → yellow → red)
 local function HealthColor(pct)
     pct = mclamp(pct, 0, 1)
     if pct >= 0.5 then
@@ -117,9 +138,6 @@ local function HealthColor(pct)
     end
 end
 
--- ════════════════════════════════════════════════════════════
---  IMAGE MANAGER
--- ════════════════════════════════════════════════════════════
 local ImageManager = {}
 ImageManager.screenGui      = nil
 ImageManager.images         = {}
@@ -148,7 +166,6 @@ function ImageManager:ResolveAsset(url)
         local r = "rbxassetid://" .. url
         self.assetCache[url] = r; return r
     end
-    -- async HTTP fetch (exploit-only path)
     if not self.pendingResolve[url] then
         self.pendingResolve[url] = true
         task.spawn(function()
@@ -236,9 +253,6 @@ end
 
 ImageManager:Init()
 
--- ════════════════════════════════════════════════════════════
---  VISIBILITY CHECK
--- ════════════════════════════════════════════════════════════
 local function IsPartVisible(part)
     if not part or not part.Parent then return false end
     if not localChar or not localChar.Parent then return false end
@@ -251,9 +265,6 @@ local function IsPartVisible(part)
     return hit == nil or hit == part or hit:IsDescendantOf(part.Parent)
 end
 
--- ════════════════════════════════════════════════════════════
---  DEFAULT SETTINGS FACTORY
--- ════════════════════════════════════════════════════════════
 local function DefaultSettings()
     return {
         box = {
@@ -316,17 +327,11 @@ local function DefaultSettings()
     }
 end
 
--- ════════════════════════════════════════════════════════════
---  FONTS
--- ════════════════════════════════════════════════════════════
 local Fonts = {
     SmallestPixel = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular),
     Pixel         = Font.new("rbxasset://fonts/families/Ubuntu.json",        Enum.FontWeight.Bold),
 }
 
--- ════════════════════════════════════════════════════════════
---  ENTITY TYPE
--- ════════════════════════════════════════════════════════════
 local EntityType = {}
 EntityType.__index = EntityType
 
@@ -401,8 +406,6 @@ function EntityType.new(name, custom)
     self._chamLastKey    = {}
     self._offsetDirty    = {}
     self._vischeckState  = {}
-
-    return self
 end
 
 function EntityType:MarkDirty(id)
@@ -528,9 +531,6 @@ local heldItemImages = {
     ["Salvaged Break Action"]="rbxassetid://15188994406",
 }
 
--- ════════════════════════════════════════════════════════════
---  SKELETON HELPERS
--- ════════════════════════════════════════════════════════════
 local R6_BONES  = {
     "Head_Spine","Spine",
     "LeftArm","LeftArm_UpperTorso",
@@ -556,7 +556,6 @@ local function makeBoneLines(names)
     return t
 end
 
--- Project a part's centre to screen (returns V2 or nil if behind cam)
 local function vp(part)
     if not part then return nil end
     local sp = Camera:WorldToViewportPoint(part.Position)
@@ -564,7 +563,6 @@ local function vp(part)
     return V2(sp.X, sp.Y)
 end
 
--- Project a world position offset from a part's CFrame
 local function vpCF(part, offsetCF)
     if not part then return nil end
     local sp = Camera:WorldToViewportPoint((part.CFrame * offsetCF).Position)
@@ -572,9 +570,6 @@ local function vpCF(part, offsetCF)
     return V2(sp.X, sp.Y)
 end
 
--- ════════════════════════════════════════════════════════════
---  ESP CORE
--- ════════════════════════════════════════════════════════════
 local ESP = {
     entityTypes     = {},
     whitelistedWeapons = {},
@@ -587,7 +582,6 @@ local ESP = {
     chamsContainer  = nil,
 }
 
--- ── Font ─────────────────────────────────────────────────────
 function ESP:SetFont(n)
     self.activeFont = (type(n)=="string")
         and (self.Fonts[n] or self.Fonts.Pixel)
@@ -596,7 +590,6 @@ end
 
 function ESP:SetEnabled(e) self.Enabled = e end
 
--- ── Entity-type lifecycle ─────────────────────────────────────
 function ESP:CreateEntityType(name, custom)
     if self.entityTypes[name] then return self.entityTypes[name] end
     local et = EntityType.new(name, custom)
@@ -619,7 +612,6 @@ function ESP:SetEntityTypeEnabled(name, enabled)
     if et then et.enabled = enabled end
 end
 
--- ── Tracking ──────────────────────────────────────────────────
 function ESP:TrackPlayer(player, typeName)
     typeName = typeName or "players"
     local et = self.entityTypes[typeName]
@@ -806,11 +798,40 @@ local function newTextDrawing(et, tType)
     return t
 end
 
--- ════════════════════════════════════════════════════════════
---  RENDER HANDLERS
--- ════════════════════════════════════════════════════════════
+local function hideAll(et, id)
+    local ents = et.entities
+    for _, key in ipairs({"box","boxoutline","healthbar","healthbarbackground","healthbartext"}) do
+        local e = ents[key][id]; if e then e.Visible = false end
+    end
+    local sk = ents.skeleton[id]
+    if sk then
+        for _, b in pairs(sk.r6) do b.line.Visible = false end
+        for _, b in pairs(sk.r15) do b.line.Visible = false end
+    end
+    for _, place in ipairs({"top","bottom","flags"}) do
+        for _, byType in pairs(et.entities.text[place]) do
+            for id2 in pairs(byType) do byType[id2].Visible = false end
+        end
+    end
+    for _, pfx in ipairs({"imagebox_","oofarrow_","vischeckimage_","weaponimage_"}) do
+        local img = ImageManager:Get(pfx .. id)
+        if img then img.Visible = false end
+    end
+end
 
--- ── Box ──────────────────────────────────────────────────────
+local function newTextDrawing(et, tType)
+    local s = et.settings[tType]
+    local t = Drawing.new("Text")
+    pcall(function() t.FontFace = ESP.activeFont end)
+    t.Size         = s.size
+    t.Color        = s.color
+    t.OutlineColor = s.outlinecolor
+    t.Transparency = s.transparency
+    t.Outline      = s.outline
+    t.Visible      = false
+    return t
+end
+
 function ESP:_HandleBox(et, id)
     local min, max, on = et.mins[id], et.maxes[id], et.onscreens[id]
     local s  = et.settings.box
@@ -850,7 +871,6 @@ function ESP:_HandleBox(et, id)
     end
 end
 
--- ── Health Bar ───────────────────────────────────────────────
 function ESP:_HandleHealthbar(et, id)
     local min, max, on = et.mins[id], et.maxes[id], et.onscreens[id]
     local s = et.settings.healthbar
@@ -913,7 +933,6 @@ function ESP:_HandleHealthbar(et, id)
     end
 end
 
--- ── Text ─────────────────────────────────────────────────────
 function ESP:_HandleText(et, id, tType)
     local setting = et.settings[tType]
     if type(setting) ~= "table" or not setting.color or setting.priority == nil then return end
@@ -969,7 +988,6 @@ function ESP:_HandleText(et, id, tType)
     else                          txt.Position = V2(cx,    max.y + offset) end
 end
 
--- ── Skeleton ─────────────────────────────────────────────────
 function ESP:_HandleSkeleton(et, id)
     local target = et.valid[id]
     local on     = et.onscreens[id]
@@ -1076,7 +1094,6 @@ function ESP:_HandleSkeleton(et, id)
     end
 end
 
--- ── Image Box ────────────────────────────────────────────────
 function ESP:_HandleImageBox(et, id)
     local min, max, on = et.mins[id], et.maxes[id], et.onscreens[id]
     local s    = et.settings.imagebox
@@ -1093,7 +1110,6 @@ function ESP:_HandleImageBox(et, id)
     end
 end
 
--- ── OOF Arrows ──────────────────────────────────────────────
 function ESP:_HandleOOFArrows(et, id, target)
     local s   = et.settings.oofarrows
     local key = "oofarrow_" .. id
@@ -1323,11 +1339,9 @@ function ESP:_UpdateChams(et, id, target)
 end
 
 function ESP:_GetWeaponName(target)
-    -- Tools are always parented to the character model itself.
     for _, c in ipairs(target:GetChildren()) do
         if c:IsA("Tool") then return c.Name end
     end
-    -- Fallback: name-match against known item list
     for wn in pairs(self.heldItemImages) do
         if target:FindFirstChild(wn) then return wn end
     end
@@ -1414,7 +1428,6 @@ function ESP:Start()
         end
     end)
 
-    -- Chams update loop (runs at its own, configurable frequency)
     self.chamsRunning = true
     task.spawn(function()
         while self.chamsRunning do
