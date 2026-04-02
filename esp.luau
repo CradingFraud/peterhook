@@ -1233,8 +1233,8 @@ function ESP:_CreateBox(entityType, id, min, max, onscreen)
         local pos = Vector2.new(min.x, min.y)
         outline.Position = pos
         box.Position = pos
-        local length = math.max(4, max.x - min.x)
-        local height = math.max(4, max.y - min.y)
+        local length = math.max(30, max.x - min.x)
+        local height = math.max(30, max.y - min.y)
         length = math.min(length, 500)
         height = math.min(height, 500)
         outline.Size = Vector2.new(length, height)
@@ -1441,7 +1441,7 @@ function ESP:_CreateImageBox(entityType, id, min, max, onscreen)
     img.Visible = onscreen
 
     if onscreen and min and max and min.x and min.y and max.x and max.y then
-        local size = Vector2.new(math.max(4, max.x - min.x), math.max(4, max.y - min.y))
+        local size = Vector2.new(math.max(30, max.x - min.x), math.max(30, max.y - min.y))
         img.Size = UDim2.new(0, size.X, 0, size.Y)
         img.Position = UDim2.new(0, min.x, 0, min.y)
         img.AnchorPoint = Vector2.new(0, 0)
@@ -1469,8 +1469,8 @@ function ESP:_UpdateBox(entityType, id, min, max, onscreen)
         local pos = Vector2.new(min.x, min.y)
         box.Position = pos
 
-        local length = math.max(4, max.x - min.x)
-        local height = math.max(4, max.y - min.y)
+        local length = math.max(30, max.x - min.x)
+        local height = math.max(30, max.y - min.y)
         length = math.min(length, 500)
         height = math.min(height, 500)
         local size = Vector2.new(length, height)
@@ -1790,10 +1790,16 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                     local RF = rightFoot and Camera:WorldToViewportPoint(rightFoot.Position)
 
                     if H and UT and H.Z > 0 and UT.Z > 0 then
-                        bones.Head_UpperTorso.line.From = Vector2.new(H.X, H.Y)
-                        bones.Head_UpperTorso.line.To = Vector2.new(UT.X, UT.Y)
-                        bones.Head_UpperTorso.line.Visible = true
-                    else bones.Head_UpperTorso.line.Visible = false end
+                        if bones and bones.Head_UpperTorso then
+                            bones.Head_UpperTorso.line.From = Vector2.new(H.X, H.Y)
+                            bones.Head_UpperTorso.line.To = Vector2.new(UT.X, UT.Y)
+                            bones.Head_UpperTorso.line.Visible = true
+                        end
+                    else 
+                        if bones and bones.Head_UpperTorso then
+                            bones.Head_UpperTorso.line.Visible = false 
+                        end
+                    end
 
                     if UT and LT and UT.Z > 0 and LT.Z > 0 then
                         bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
@@ -1895,7 +1901,7 @@ function ESP:_UpdateImageBox(entityType, id, min, max, onscreen)
 
     if onscreen and entityType.settings.imagebox.enabled and isValid then
         if min and max and min.x and min.y and max.x and max.y then
-            local size = Vector2.new(math.max(4, max.x - min.x), math.max(4, max.y - min.y))
+            local size = Vector2.new(math.max(30, max.x - min.x), math.max(30, max.y - min.y))
             image.Size = UDim2.new(0, size.X, 0, size.Y)
             image.Position = UDim2.new(0, min.x, 0, min.y)
         end
