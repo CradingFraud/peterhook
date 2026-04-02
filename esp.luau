@@ -382,11 +382,15 @@ local function IsPartVisible(part)
 
     local camPos = Camera.CFrame.Position
     local partPos = part.Position
+    local direction = partPos - camPos
 
-    local ray = Ray.new(camPos, (partPos - camPos).Unit * (partPos - camPos).Magnitude)
-    local hitPart = workspace:FindPartOnRayWithIgnoreList(ray, {part.Parent, character})
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {part.Parent, character}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
 
-    return hitPart == nil or hitPart == part or hitPart:IsDescendantOf(part.Parent)
+    local result = workspace:Raycast(camPos, direction, raycastParams)
+
+    return result == nil or result.Instance == part or result.Instance:IsDescendantOf(part.Parent)
 end
 
 local function createDefaultSettings()
@@ -755,10 +759,16 @@ function EntityType:IsValid(target, id)
 end
 
 function EntityType:CheckR6(char)
-    if char:FindFirstChild('RightHand') then
+    -- Positive check for R6-exclusive part first
+    if char:FindFirstChild('Torso') then
+        return true
+    end
+    -- Positive check for R15-exclusive parts
+    if char:FindFirstChild('UpperTorso') or char:FindFirstChild('RightHand') then
         return false
     end
-    return true
+    -- Default to R15 (safer for this game)
+    return false
 end
 
 local ESPEnabled = true
@@ -934,6 +944,18 @@ function ESP:TrackPlayer(player, entityTypeName)
     local id = player.UserId
 
     local function onCharacter(char)
+
+        -- Clear any existing skeleton so it gets rebuilt with the correct
+        -- R6/R15 bone table. Without this, a stale table from a previous
+        -- spawn causes "attempt to index nil with 'line'" on respawn.
+        if entityType.entities.skeleton[id] then
+            for _, bone in pairs(entityType.entities.skeleton[id]) do
+                if bone and bone.line then
+                    pcall(function() bone.line:Remove() end)
+                end
+            end
+            entityType.entities.skeleton[id] = nil
+        end
 
         entityType.valid[id] = char
         entityType.validr6[id] = entityType:CheckR6(char)
@@ -2409,7 +2431,7 @@ function ESP:_UpdateChams(entityType, id, target)
                 isHead and "Cylinder" or "Box",
                 gc,
                 0.5,  
-                isHead and 10 or 9,
+                9,
                 Vector3.new(0.08, 0.08, 0.08),
                 xrayShading and {Shading = xrayShading} or {}
             )
@@ -2558,7 +2580,7 @@ function ESP:Start()
             if not entityType.enabled then continue end
             for id, target in pairs(entityType.valid) do
                 if entityType:IsValid(target, id) then
-                    self:_UpdateChams(entityType, id, target)
+                    pcall(function() self:_UpdateChams(entityType, id, target) end)
                 end
             end
         end
@@ -2583,7 +2605,7 @@ function ESP:Start()
                 if not entityType.enabled then continue end
                 for id, target in pairs(entityType.valid) do
                     if entityType:IsValid(target, id) then
-                        self:_UpdateChams(entityType, id, target)
+                        pcall(function() self:_UpdateChams(entityType, id, target) end)
                     end
                 end
             end
