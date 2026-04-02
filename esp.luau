@@ -140,13 +140,21 @@ Math.getcorners = function(target, isModel, isPart)
         local torso = nil
         local upperTorso = nil
         local lowerTorso = nil
+        local leftFoot = nil
+        local rightFoot = nil
+        local leftLowerLeg = nil
+        local rightLowerLeg = nil
         
         for _, v in pairs(children) do
             if v:IsA("BasePart") then
                 if v.Name == "Head" then head = v
                 elseif v.Name == "Torso" then torso = v
                 elseif v.Name == "UpperTorso" then upperTorso = v
-                elseif v.Name == "LowerTorso" then lowerTorso = v end
+                elseif v.Name == "LowerTorso" then lowerTorso = v
+                elseif v.Name == "LeftFoot" then leftFoot = v
+                elseif v.Name == "RightFoot" then rightFoot = v
+                elseif v.Name == "LeftLowerLeg" then leftLowerLeg = v
+                elseif v.Name == "RightLowerLeg" then rightLowerLeg = v end
             end
         end
         
@@ -154,17 +162,29 @@ Math.getcorners = function(target, isModel, isPart)
         if torso then table.insert(partsToProject, torso) end
         if upperTorso then table.insert(partsToProject, upperTorso) end
         if lowerTorso then table.insert(partsToProject, lowerTorso) end
+        if leftFoot then table.insert(partsToProject, leftFoot) end
+        if rightFoot then table.insert(partsToProject, rightFoot) end
+        if leftLowerLeg then table.insert(partsToProject, leftLowerLeg) end
+        if rightLowerLeg then table.insert(partsToProject, rightLowerLeg) end
     else
         local children = target:GetChildren()
         local head = target:FindFirstChild("Head")
         local torso = target:FindFirstChild("Torso")
         local upperTorso = target:FindFirstChild("UpperTorso")
         local lowerTorso = target:FindFirstChild("LowerTorso")
+        local leftFoot = target:FindFirstChild("LeftFoot")
+        local rightFoot = target:FindFirstChild("RightFoot")
+        local leftLowerLeg = target:FindFirstChild("LeftLowerLeg")
+        local rightLowerLeg = target:FindFirstChild("RightLowerLeg")
         
         if head then table.insert(partsToProject, head) end
         if torso then table.insert(partsToProject, torso) end
         if upperTorso then table.insert(partsToProject, upperTorso) end
         if lowerTorso then table.insert(partsToProject, lowerTorso) end
+        if leftFoot then table.insert(partsToProject, leftFoot) end
+        if rightFoot then table.insert(partsToProject, rightFoot) end
+        if leftLowerLeg then table.insert(partsToProject, leftLowerLeg) end
+        if rightLowerLeg then table.insert(partsToProject, rightLowerLeg) end
     end
 
     if #partsToProject == 0 then
@@ -1802,73 +1822,127 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                     end
 
                     if UT and LT and UT.Z > 0 and LT.Z > 0 then
-                        bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
-                        bones.UpperTorso_LowerTorso.line.To = Vector2.new(LT.X, LT.Y)
-                        bones.UpperTorso_LowerTorso.line.Visible = true
-                    else bones.UpperTorso_LowerTorso.line.Visible = false end
+                        if bones and bones.UpperTorso_LowerTorso then
+                            bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
+                            bones.UpperTorso_LowerTorso.line.To = Vector2.new(LT.X, LT.Y)
+                            bones.UpperTorso_LowerTorso.line.Visible = true
+                        end
+                    else 
+                        if bones and bones.UpperTorso_LowerTorso then
+                            bones.UpperTorso_LowerTorso.line.Visible = false
+                        end
+                    end
 
                     if LUA and LLA and LH and LUA.Z > 0 and LLA.Z > 0 and LH.Z > 0 then
-                        bones.UpperTorso_LeftUpperArm.line.From = Vector2.new(UT.X, UT.Y)
-                        bones.UpperTorso_LeftUpperArm.line.To = Vector2.new(LUA.X, LUA.Y)
-                        bones.UpperTorso_LeftUpperArm.line.Visible = true
-                        bones.LeftUpperArm_LeftLowerArm.line.From = Vector2.new(LUA.X, LUA.Y)
-                        bones.LeftUpperArm_LeftLowerArm.line.To = Vector2.new(LLA.X, LLA.Y)
-                        bones.LeftUpperArm_LeftLowerArm.line.Visible = true
-                        bones.LeftLowerArm_LeftHand.line.From = Vector2.new(LLA.X, LLA.Y)
-                        bones.LeftLowerArm_LeftHand.line.To = Vector2.new(LH.X, LH.Y)
-                        bones.LeftLowerArm_LeftHand.line.Visible = true
+                        if bones and bones.UpperTorso_LeftUpperArm then
+                            bones.UpperTorso_LeftUpperArm.line.From = Vector2.new(UT.X, UT.Y)
+                            bones.UpperTorso_LeftUpperArm.line.To = Vector2.new(LUA.X, LUA.Y)
+                            bones.UpperTorso_LeftUpperArm.line.Visible = true
+                        end
+                        if bones and bones.LeftUpperArm_LeftLowerArm then
+                            bones.LeftUpperArm_LeftLowerArm.line.From = Vector2.new(LUA.X, LUA.Y)
+                            bones.LeftUpperArm_LeftLowerArm.line.To = Vector2.new(LLA.X, LLA.Y)
+                            bones.LeftUpperArm_LeftLowerArm.line.Visible = true
+                        end
+                        if bones and bones.LeftLowerArm_LeftHand then
+                            bones.LeftLowerArm_LeftHand.line.From = Vector2.new(LLA.X, LLA.Y)
+                            bones.LeftLowerArm_LeftHand.line.To = Vector2.new(LH.X, LH.Y)
+                            bones.LeftLowerArm_LeftHand.line.Visible = true
+                        end
                     else
-                        bones.UpperTorso_LeftUpperArm.line.Visible = false
-                        bones.LeftUpperArm_LeftLowerArm.line.Visible = false
-                        bones.LeftLowerArm_LeftHand.line.Visible = false
+                        if bones and bones.UpperTorso_LeftUpperArm then
+                            bones.UpperTorso_LeftUpperArm.line.Visible = false
+                        end
+                        if bones and bones.LeftUpperArm_LeftLowerArm then
+                            bones.LeftUpperArm_LeftLowerArm.line.Visible = false
+                        end
+                        if bones and bones.LeftLowerArm_LeftHand then
+                            bones.LeftLowerArm_LeftHand.line.Visible = false
+                        end
                     end
 
                     if RUA and RLA and RH and RUA.Z > 0 and RLA.Z > 0 and RH.Z > 0 then
-                        bones.UpperTorso_RightUpperArm.line.From = Vector2.new(UT.X, UT.Y)
-                        bones.UpperTorso_RightUpperArm.line.To = Vector2.new(RUA.X, RUA.Y)
-                        bones.UpperTorso_RightUpperArm.line.Visible = true
-                        bones.RightUpperArm_RightLowerArm.line.From = Vector2.new(RUA.X, RUA.Y)
-                        bones.RightUpperArm_RightLowerArm.line.To = Vector2.new(RLA.X, RLA.Y)
-                        bones.RightUpperArm_RightLowerArm.line.Visible = true
-                        bones.RightLowerArm_RightHand.line.From = Vector2.new(RLA.X, RLA.Y)
-                        bones.RightLowerArm_RightHand.line.To = Vector2.new(RH.X, RH.Y)
-                        bones.RightLowerArm_RightHand.line.Visible = true
+                        if bones and bones.UpperTorso_RightUpperArm then
+                            bones.UpperTorso_RightUpperArm.line.From = Vector2.new(UT.X, UT.Y)
+                            bones.UpperTorso_RightUpperArm.line.To = Vector2.new(RUA.X, RUA.Y)
+                            bones.UpperTorso_RightUpperArm.line.Visible = true
+                        end
+                        if bones and bones.RightUpperArm_RightLowerArm then
+                            bones.RightUpperArm_RightLowerArm.line.From = Vector2.new(RUA.X, RUA.Y)
+                            bones.RightUpperArm_RightLowerArm.line.To = Vector2.new(RLA.X, RLA.Y)
+                            bones.RightUpperArm_RightLowerArm.line.Visible = true
+                        end
+                        if bones and bones.RightLowerArm_RightHand then
+                            bones.RightLowerArm_RightHand.line.From = Vector2.new(RLA.X, RLA.Y)
+                            bones.RightLowerArm_RightHand.line.To = Vector2.new(RH.X, RH.Y)
+                            bones.RightLowerArm_RightHand.line.Visible = true
+                        end
                     else
-                        bones.UpperTorso_RightUpperArm.line.Visible = false
-                        bones.RightUpperArm_RightLowerArm.line.Visible = false
-                        bones.RightLowerArm_RightHand.line.Visible = false
+                        if bones and bones.UpperTorso_RightUpperArm then
+                            bones.UpperTorso_RightUpperArm.line.Visible = false
+                        end
+                        if bones and bones.RightUpperArm_RightLowerArm then
+                            bones.RightUpperArm_RightLowerArm.line.Visible = false
+                        end
+                        if bones and bones.RightLowerArm_RightHand then
+                            bones.RightLowerArm_RightHand.line.Visible = false
+                        end
                     end
 
                     if LUL and LLL and LF and LUL.Z > 0 and LLL.Z > 0 and LF.Z > 0 then
-                        bones.LowerTorso_LeftUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
-                        bones.LowerTorso_LeftUpperLeg.line.To = Vector2.new(LUL.X, LUL.Y)
-                        bones.LowerTorso_LeftUpperLeg.line.Visible = true
-                        bones.LeftUpperLeg_LeftLowerLeg.line.From = Vector2.new(LUL.X, LUL.Y)
-                        bones.LeftUpperLeg_LeftLowerLeg.line.To = Vector2.new(LLL.X, LLL.Y)
-                        bones.LeftUpperLeg_LeftLowerLeg.line.Visible = true
-                        bones.LeftLowerLeg_LeftFoot.line.From = Vector2.new(LLL.X, LLL.Y)
-                        bones.LeftLowerLeg_LeftFoot.line.To = Vector2.new(LF.X, LF.Y)
-                        bones.LeftLowerLeg_LeftFoot.line.Visible = true
+                        if bones and bones.LowerTorso_LeftUpperLeg then
+                            bones.LowerTorso_LeftUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
+                            bones.LowerTorso_LeftUpperLeg.line.To = Vector2.new(LUL.X, LUL.Y)
+                            bones.LowerTorso_LeftUpperLeg.line.Visible = true
+                        end
+                        if bones and bones.LeftUpperLeg_LeftLowerLeg then
+                            bones.LeftUpperLeg_LeftLowerLeg.line.From = Vector2.new(LUL.X, LUL.Y)
+                            bones.LeftUpperLeg_LeftLowerLeg.line.To = Vector2.new(LLL.X, LLL.Y)
+                            bones.LeftUpperLeg_LeftLowerLeg.line.Visible = true
+                        end
+                        if bones and bones.LeftLowerLeg_LeftFoot then
+                            bones.LeftLowerLeg_LeftFoot.line.From = Vector2.new(LLL.X, LLL.Y)
+                            bones.LeftLowerLeg_LeftFoot.line.To = Vector2.new(LF.X, LF.Y)
+                            bones.LeftLowerLeg_LeftFoot.line.Visible = true
+                        end
                     else
-                        bones.LowerTorso_LeftUpperLeg.line.Visible = false
-                        bones.LeftUpperLeg_LeftLowerLeg.line.Visible = false
-                        bones.LeftLowerLeg_LeftFoot.line.Visible = false
+                        if bones and bones.LowerTorso_LeftUpperLeg then
+                            bones.LowerTorso_LeftUpperLeg.line.Visible = false
+                        end
+                        if bones and bones.LeftUpperLeg_LeftLowerLeg then
+                            bones.LeftUpperLeg_LeftLowerLeg.line.Visible = false
+                        end
+                        if bones and bones.LeftLowerLeg_LeftFoot then
+                            bones.LeftLowerLeg_LeftFoot.line.Visible = false
+                        end
                     end
 
                     if RUL and RLL and RF and RUL.Z > 0 and RLL.Z > 0 and RF.Z > 0 then
-                        bones.LowerTorso_RightUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
-                        bones.LowerTorso_RightUpperLeg.line.To = Vector2.new(RUL.X, RUL.Y)
-                        bones.LowerTorso_RightUpperLeg.line.Visible = true
-                        bones.RightUpperLeg_RightLowerLeg.line.From = Vector2.new(RUL.X, RUL.Y)
-                        bones.RightUpperLeg_RightLowerLeg.line.To = Vector2.new(RLL.X, RLL.Y)
-                        bones.RightUpperLeg_RightLowerLeg.line.Visible = true
-                        bones.RightLowerLeg_RightFoot.line.From = Vector2.new(RLL.X, RLL.Y)
-                        bones.RightLowerLeg_RightFoot.line.To = Vector2.new(RF.X, RF.Y)
-                        bones.RightLowerLeg_RightFoot.line.Visible = true
+                        if bones and bones.LowerTorso_RightUpperLeg then
+                            bones.LowerTorso_RightUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
+                            bones.LowerTorso_RightUpperLeg.line.To = Vector2.new(RUL.X, RUL.Y)
+                            bones.LowerTorso_RightUpperLeg.line.Visible = true
+                        end
+                        if bones and bones.RightUpperLeg_RightLowerLeg then
+                            bones.RightUpperLeg_RightLowerLeg.line.From = Vector2.new(RUL.X, RUL.Y)
+                            bones.RightUpperLeg_RightLowerLeg.line.To = Vector2.new(RLL.X, RLL.Y)
+                            bones.RightUpperLeg_RightLowerLeg.line.Visible = true
+                        end
+                        if bones and bones.RightLowerLeg_RightFoot then
+                            bones.RightLowerLeg_RightFoot.line.From = Vector2.new(RLL.X, RLL.Y)
+                            bones.RightLowerLeg_RightFoot.line.To = Vector2.new(RF.X, RF.Y)
+                            bones.RightLowerLeg_RightFoot.line.Visible = true
+                        end
                     else
-                        bones.LowerTorso_RightUpperLeg.line.Visible = false
-                        bones.RightUpperLeg_RightLowerLeg.line.Visible = false
-                        bones.RightLowerLeg_RightFoot.line.Visible = false
+                        if bones and bones.LowerTorso_RightUpperLeg then
+                            bones.LowerTorso_RightUpperLeg.line.Visible = false
+                        end
+                        if bones and bones.RightUpperLeg_RightLowerLeg then
+                            bones.RightUpperLeg_RightLowerLeg.line.Visible = false
+                        end
+                        if bones and bones.RightLowerLeg_RightFoot then
+                            bones.RightLowerLeg_RightFoot.line.Visible = false
+                        end
                     end
                 else
                     for i, v in pairs(bones) do
