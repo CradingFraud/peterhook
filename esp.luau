@@ -852,6 +852,8 @@ local ESP = {
     Fonts = Fonts,
     activeFont = Fonts.Pixel,
     chamsContainer = nil, -- Folder in CoreGui; adornments parented here to avoid workspace detection
+    team = {}, -- Table to store team member UserIds
+    teamCheckEnabled = false, -- Toggle team check on/off
 }
 
 function ESP:SetFont(nameOrObject)
@@ -953,9 +955,15 @@ function ESP:TrackPlayer(player, entityTypeName)
         end
     end
 
+    if self.teamCheckEnabled and self.team[player.UserId] then
+        return
+    end
+
     local id = player.UserId
 
     local function onCharacter(char)
+        -- Clean up old character's ESP before setting up new one
+        self:_RemoveAllESP(entityType, id)
 
         entityType.valid[id] = char
         entityType.validr6[id] = entityType:CheckR6(char)
@@ -971,7 +979,7 @@ function ESP:TrackPlayer(player, entityTypeName)
         local hum = char:FindFirstChild("Humanoid") or char:FindFirstChildOfClass("Humanoid")
         if hum then
             entityType.deathConnections[id] = hum.Died:Connect(function()
-
+                self:_RemoveAllESP(entityType, id)
             end)
         end
     end
@@ -2875,5 +2883,24 @@ end)
 for _, player in pairs(Players:GetPlayers()) do
     ESP:TrackPlayer(player, "players")
 end
+
+-- Team check refresh loop (every 5 seconds)
+spawn(function()
+    while true do
+        wait(5)
+        if ESP.teamCheckEnabled then
+            -- Clear and rebuild team table
+            table.clear(ESP.team)
+            local lpTeam = lp.Team
+            if lpTeam then
+                for _, player in pairs(Players:GetPlayers()) do
+                    if player ~= lp and player.Team == lpTeam then
+                        ESP.team[player.UserId] = true
+                    end
+                end
+            end
+        end
+    end
+end)
 
 return ESP
