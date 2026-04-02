@@ -36,57 +36,64 @@ Math.minMaxFromExtent = function(cf, extent)
 end
 
 Math.getboundingbox = function(instances: {BasePart}, orientation: CFrame?)
-    if not orientation then
-        orientation = CFrame.new()
+    local min = Vector3.new(math.huge, math.huge, math.huge)
+    local max = Vector3.new(-math.huge, -math.huge, -math.huge)
+
+    local pivot = orientation or CFrame.new()
+    local firstPart = nil
+
+    local handParts = {LeftHand=true, RightHand=true, LeftLowerArm=true, RightLowerArm=true, LeftUpperArm=true, RightUpperArm=true}
+
+    for _, part in ipairs(instances) do
+        if part:IsA("BasePart") and not handParts[part.Name] and part.Transparency < 1 then
+            if not firstPart then
+                firstPart = part
+                pivot = CFrame.new(part.Position) * (orientation or CFrame.new())
+            end
+
+            local cf = pivot:Inverse() * part.CFrame
+            local hx, hy, hz = part.Size.X * 0.5, part.Size.Y * 0.5, part.Size.Z * 0.5
+
+            local corners = {
+                cf * Vector3.new( hx,  hy,  hz),
+                cf * Vector3.new(-hx,  hy,  hz),
+                cf * Vector3.new( hx, -hy,  hz),
+                cf * Vector3.new(-hx, -hy,  hz),
+                cf * Vector3.new( hx,  hy, -hz),
+                cf * Vector3.new(-hx,  hy, -hz),
+                cf * Vector3.new( hx, -hy, -hz),
+                cf * Vector3.new(-hx, -hy, -hz),
+            }
+
+            for _, corner in ipairs(corners) do
+                min = Vector3.new(
+                    math.min(min.X, corner.X),
+                    math.min(min.Y, corner.Y),
+                    math.min(min.Z, corner.Z)
+                )
+                max = Vector3.new(
+                    math.max(max.X, corner.X),
+                    math.max(max.Y, corner.Y),
+                    math.max(max.Z, corner.Z)
+                )
+            end
+        end
     end
 
-    local j = 0
-
-    repeat
-        j += 1
-
-        if instances[j] == nil then
-            return CFrame.new(), Vector3.new()
-        end
-
-    until instances[j]:IsA("BasePart")
-
-    orientation = CFrame.new(instances[j].Position) * orientation
-    local inversedOrientation = orientation:Inverse()
-    local localCF = inversedOrientation * instances[j].CFrame
-    local extent = Math.calculateExtent(localCF, instances[j].Size)
-    local min, max = Math.minMaxFromExtent(localCF, extent)
-
-    for i = j + 1, #instances do
-        local part = instances[i]
-        if part:IsA("BasePart") then
-            local cf = inversedOrientation * part.CFrame
-            local e = Math.calculateExtent(cf, part.Size)
-            local lmin, lmax = Math.minMaxFromExtent(cf, e)
-
-            min = Vector3.new(
-                math.min(min.X, lmin.X),
-                math.min(min.Y, lmin.Y),
-                math.min(min.Z, lmin.Z)
-            )
-
-            max = Vector3.new(
-                math.max(max.X, lmax.X),
-                math.max(max.Y, lmax.Y),
-                math.max(max.Z, lmax.Z)
-            )
-        end
+    if not firstPart then
+        return CFrame.new(), Vector3.new()
     end
 
     local centerLocal = (min + max) * 0.5
     local size = max - min
-    local centerWorld = orientation * CFrame.new(centerLocal)
+    local centerWorld = pivot * CFrame.new(centerLocal)
 
     return centerWorld, size
 end
-
 Math.getcorners = function(target, isModel, isPart)
-    local children
+    local minX, minY = math.huge, math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    local anyOnscreen = false
 
     if isPart then
         local part = target
@@ -94,73 +101,24 @@ Math.getcorners = function(target, isModel, isPart)
             return {x = 0, y = 0}, {x = 0, y = 0}, false
         end
 
+        local size = part.Size / 2
         local cf = part.CFrame
-        local size = part.Size
-        local half = size / 2
-        local pos = cf.Position
-
+        
         local corners = {
-            pos + Vector3.new(-half.X, -half.Y, -half.Z),
-            pos + Vector3.new(half.X, -half.Y, -half.Z),
-            pos + Vector3.new(-half.X, half.Y, -half.Z),
-            pos + Vector3.new(half.X, half.Y, -half.Z),
-            pos + Vector3.new(-half.X, -half.Y, half.Z),
-            pos + Vector3.new(half.X, -half.Y, half.Z),
-            pos + Vector3.new(-half.X, half.Y, half.Z),
-            pos + Vector3.new(half.X, half.Y, half.Z)
+            cf * Vector3.new(-size.X, -size.Y, -size.Z),
+            cf * Vector3.new(size.X, -size.Y, -size.Z),
+            cf * Vector3.new(-size.X, size.Y, -size.Z),
+            cf * Vector3.new(size.X, size.Y, -size.Z),
+            cf * Vector3.new(-size.X, -size.Y, size.Z),
+            cf * Vector3.new(size.X, -size.Y, size.Z),
+            cf * Vector3.new(-size.X, size.Y, size.Z),
+            cf * Vector3.new(size.X, size.Y, size.Z),
         }
-
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        local anyOnscreen = false
-
-        for _, corner in pairs(corners) do
+        
+        for _, corner in ipairs(corners) do
             local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
-            if onscreen then
-                anyOnscreen = true
-            end
-            minX = math.min(minX, screenPos.X)
-            minY = math.min(minY, screenPos.Y)
-            maxX = math.max(maxX, screenPos.X)
-            maxY = math.max(maxY, screenPos.Y)
-        end
-
-        return {x = minX, y = minY}, {x = maxX, y = maxY}, anyOnscreen
-    end
-
-    if isModel then
-        children = target:GetDescendants()
-        local parts = {}
-        for _, v in pairs(children) do
-            if v:IsA("BasePart") then
-                table.insert(parts, v)
-            end
-        end
-        children = parts
-
-        local centerWorld, size = Math.getboundingbox(children)
-        local half = size/2
-        local pos = centerWorld.Position
-
-        local corners = {
-            pos + Vector3.new(-half.X, -half.Y, -half.Z),
-            pos + Vector3.new(half.X, -half.Y, -half.Z),
-            pos + Vector3.new(-half.X, half.Y, -half.Z),
-            pos + Vector3.new(half.X, half.Y, -half.Z),
-            pos + Vector3.new(-half.X, -half.Y, half.Z),
-            pos + Vector3.new(half.X, -half.Y, half.Z),
-            pos + Vector3.new(-half.X, half.Y, half.Z),
-            pos + Vector3.new(half.X, half.Y, half.Z)
-        }
-
-        local minX, minY = math.huge, math.huge
-        local maxX, maxY = -math.huge, -math.huge
-        local anyOnscreen = false
-
-        for _, corner in pairs(corners) do
-            local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
-            if onscreen then anyOnscreen = true end
             if screenPos.Z > 0 then
+                if onscreen then anyOnscreen = true end
                 minX = math.min(minX, screenPos.X)
                 minY = math.min(minY, screenPos.Y)
                 maxX = math.max(maxX, screenPos.X)
@@ -168,42 +126,85 @@ Math.getcorners = function(target, isModel, isPart)
             end
         end
 
+        if minX == math.huge then
+            return {x = 0, y = 0}, {x = 0, y = 0}, false
+        end
         return {x = minX, y = minY}, {x = maxX, y = maxY}, anyOnscreen
-    else
-        local hrp = target:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            return {x = 0, y = 0}, {x = 0, y = 0}, false
-        end
-
-        local head = target:FindFirstChild("Head")
-        local hum = target:FindFirstChildOfClass("Humanoid")
-        local hipHeight = hum and hum.HipHeight or 2
-
-        local topPos
-        if head then
-            topPos = head.CFrame.Position + Vector3.new(0, head.Size.Y / 2, 0)
-        else
-            topPos = hrp.Position + Vector3.new(0, hipHeight + hrp.Size.Y, 0)
-        end
-        local botPos = hrp.Position - Vector3.new(0, hrp.Size.Y / 2 + hipHeight, 0)
-
-        local topScreen, topOnscreen = Camera:WorldToViewportPoint(topPos)
-        local botScreen, botOnscreen = Camera:WorldToViewportPoint(botPos)
-
-        if topScreen.Z <= 0 and botScreen.Z <= 0 then
-            return {x = 0, y = 0}, {x = 0, y = 0}, false
-        end
-
-        local screenHeight = botScreen.Y - topScreen.Y
-        local screenWidth  = math.max(screenHeight / 2, 10)
-        local centerX      = (topScreen.X + botScreen.X) / 2
-
-        local anyOnscreen = topOnscreen or botOnscreen
-
-        return {x = centerX - screenWidth / 2, y = topScreen.Y},
-               {x = centerX + screenWidth / 2, y = botScreen.Y},
-               anyOnscreen
     end
+
+    local partsToProject = {}
+    
+    if isModel then
+        local children = target:GetDescendants()
+        local head = nil
+        local torso = nil
+        local upperTorso = nil
+        local lowerTorso = nil
+        
+        for _, v in pairs(children) do
+            if v:IsA("BasePart") then
+                if v.Name == "Head" then head = v
+                elseif v.Name == "Torso" then torso = v
+                elseif v.Name == "UpperTorso" then upperTorso = v
+                elseif v.Name == "LowerTorso" then lowerTorso = v end
+            end
+        end
+        
+        if head then table.insert(partsToProject, head) end
+        if torso then table.insert(partsToProject, torso) end
+        if upperTorso then table.insert(partsToProject, upperTorso) end
+        if lowerTorso then table.insert(partsToProject, lowerTorso) end
+    else
+        local children = target:GetChildren()
+        local head = target:FindFirstChild("Head")
+        local torso = target:FindFirstChild("Torso")
+        local upperTorso = target:FindFirstChild("UpperTorso")
+        local lowerTorso = target:FindFirstChild("LowerTorso")
+        
+        if head then table.insert(partsToProject, head) end
+        if torso then table.insert(partsToProject, torso) end
+        if upperTorso then table.insert(partsToProject, upperTorso) end
+        if lowerTorso then table.insert(partsToProject, lowerTorso) end
+    end
+
+    if #partsToProject == 0 then
+        return {x = 0, y = 0}, {x = 0, y = 0}, false
+    end
+
+    for _, part in ipairs(partsToProject) do
+        if part and part.Parent then
+            local size = part.Size / 2
+            local cf = part.CFrame
+            
+            local corners = {
+                cf * Vector3.new(-size.X, -size.Y, -size.Z),
+                cf * Vector3.new(size.X, -size.Y, -size.Z),
+                cf * Vector3.new(-size.X, size.Y, -size.Z),
+                cf * Vector3.new(size.X, size.Y, -size.Z),
+                cf * Vector3.new(-size.X, -size.Y, size.Z),
+                cf * Vector3.new(size.X, -size.Y, size.Z),
+                cf * Vector3.new(-size.X, size.Y, size.Z),
+                cf * Vector3.new(size.X, size.Y, size.Z),
+            }
+            
+            for _, corner in ipairs(corners) do
+                local screenPos, onscreen = Camera:WorldToViewportPoint(corner)
+                if screenPos.Z > 0 then
+                    if onscreen then anyOnscreen = true end
+                    minX = math.min(minX, screenPos.X)
+                    minY = math.min(minY, screenPos.Y)
+                    maxX = math.max(maxX, screenPos.X)
+                    maxY = math.max(maxY, screenPos.Y)
+                end
+            end
+        end
+    end
+
+    if minX == math.huge or maxX == -math.huge then
+        return {x = 0, y = 0}, {x = 0, y = 0}, false
+    end
+
+    return {x = minX, y = minY}, {x = maxX, y = maxY}, anyOnscreen
 end
 
 local ImageManager = {}
@@ -382,33 +383,29 @@ local function IsPartVisible(part)
 
     local camPos = Camera.CFrame.Position
     local partPos = part.Position
-    local direction = partPos - camPos
 
-    local raycastParams = RaycastParams.new()
-    raycastParams.FilterDescendantsInstances = {part.Parent, character}
-    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    local ray = Ray.new(camPos, (partPos - camPos).Unit * (partPos - camPos).Magnitude)
+    local hitPart = workspace:FindPartOnRayWithIgnoreList(ray, {part.Parent, character})
 
-    local result = workspace:Raycast(camPos, direction, raycastParams)
-
-    return result == nil or result.Instance == part or result.Instance:IsDescendantOf(part.Parent)
+    return hitPart == nil or hitPart == part or hitPart:IsDescendantOf(part.Parent)
 end
 
 local function createDefaultSettings()
     return {
         box = {
-            enabled = true,
+            enabled = false,
             transparency = 1,
             color = Color3.new(1, 1, 1),
             thickness = 1
         },
         boxoutline = {
-            enabled = true,
+            enabled = false,
             transparency = 1,
             color = Color3.new(0, 0, 0),
             thickness = 1
         },
         healthbar = {
-            enabled = true,
+            enabled = false,
             dynamiccolor = true,
             healthcolor = Color3.new(0, 1, 0),
             backgroundcolor = Color3.new(0, 0, 0),
@@ -426,7 +423,7 @@ local function createDefaultSettings()
             },
         },
         weaponimage = {
-            enabled = true,
+            enabled = false,
             size = 32,
             transparency = 1,
             gap = 4,
@@ -444,7 +441,7 @@ local function createDefaultSettings()
             }
         },
         name = {
-            enabled = true,
+            enabled = false,
             top = true,
             transparency = 1,
             color = Color3.new(1, 1, 1),
@@ -454,7 +451,7 @@ local function createDefaultSettings()
             priority = 1
         },
         distance = {
-            enabled = true,
+            enabled = false,
             top = false,
             transparency = 1,
             color = Color3.new(1, 1, 1),
@@ -464,7 +461,7 @@ local function createDefaultSettings()
             priority = 1
         },
         weapon = {
-            enabled = true,
+            enabled = false,
             top = false,
             transparency = 1,
             color = Color3.new(1, 1, 1),
@@ -474,7 +471,7 @@ local function createDefaultSettings()
             priority = 2
         },
         testing = {
-            enabled = true,
+            enabled = false,
             transparency = 1,
             color = Color3.new(0, 0, 0),
             size = 11,
@@ -483,13 +480,13 @@ local function createDefaultSettings()
             priority = 1
         },
         skeleton = {
-            enabled = true,
+            enabled = false,
             transparency = 1,
             color = Color3.new(1, 1, 1),
             thickness = 1
         },
         chams = {
-            enabled = true,
+            enabled = false,
             color = Color3.fromHex("#7385ff"),
             transparency = 0.3,
             glow = true,
@@ -507,7 +504,7 @@ local function createDefaultSettings()
         },
         imagebox = {
             enabled = false,
-            url = "https://images.unsplash.com/photo-1573865526739-10659fec78a5?q=80&w=1015&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+            url = "https://raw.githubusercontent.com/tatar0071/IonHub/main/Assets/peter_griffin.png",
             transparency = 1,
             color = Color3.new(1, 1, 1),
             rounding = 0
@@ -759,16 +756,10 @@ function EntityType:IsValid(target, id)
 end
 
 function EntityType:CheckR6(char)
-    -- Positive check for R6-exclusive part first
-    if char:FindFirstChild('Torso') then
-        return true
-    end
-    -- Positive check for R15-exclusive parts
-    if char:FindFirstChild('UpperTorso') or char:FindFirstChild('RightHand') then
+    if char:FindFirstChild('RightHand') then
         return false
     end
-    -- Default to R15 (safer for this game)
-    return false
+    return true
 end
 
 local ESPEnabled = true
@@ -840,6 +831,7 @@ local ESP = {
     heldItemImages = heldItemImages,
     Fonts = Fonts,
     activeFont = Fonts.Pixel,
+    chamsContainer = nil, -- Folder in CoreGui; adornments parented here to avoid workspace detection
 }
 
 function ESP:SetFont(nameOrObject)
@@ -944,18 +936,6 @@ function ESP:TrackPlayer(player, entityTypeName)
     local id = player.UserId
 
     local function onCharacter(char)
-
-        -- Clear any existing skeleton so it gets rebuilt with the correct
-        -- R6/R15 bone table. Without this, a stale table from a previous
-        -- spawn causes "attempt to index nil with 'line'" on respawn.
-        if entityType.entities.skeleton[id] then
-            for _, bone in pairs(entityType.entities.skeleton[id]) do
-                if bone and bone.line then
-                    pcall(function() bone.line:Remove() end)
-                end
-            end
-            entityType.entities.skeleton[id] = nil
-        end
 
         entityType.valid[id] = char
         entityType.validr6[id] = entityType:CheckR6(char)
@@ -1249,12 +1229,14 @@ function ESP:_CreateBox(entityType, id, min, max, onscreen)
     box.Color = entityType.settings.box.color
     box.Thickness = entityType.settings.box.thickness
 
-    if onscreen then
+    if onscreen and min and max and min.x and min.y and max.x and max.y then
         local pos = Vector2.new(min.x, min.y)
         outline.Position = pos
         box.Position = pos
-        local length = max.x - min.x
-        local height = max.y - min.y
+        local length = math.max(4, max.x - min.x)
+        local height = math.max(4, max.y - min.y)
+        length = math.min(length, 500)
+        height = math.min(height, 500)
         outline.Size = Vector2.new(length, height)
         box.Size = Vector2.new(length, height)
     end
@@ -1458,8 +1440,8 @@ function ESP:_CreateImageBox(entityType, id, min, max, onscreen)
     img.ImageColor3 = entityType.settings.imagebox.color
     img.Visible = onscreen
 
-    if onscreen then
-        local size = Vector2.new(max.x - min.x, max.y - min.y)
+    if onscreen and min and max and min.x and min.y and max.x and max.y then
+        local size = Vector2.new(math.max(4, max.x - min.x), math.max(4, max.y - min.y))
         img.Size = UDim2.new(0, size.X, 0, size.Y)
         img.Position = UDim2.new(0, min.x, 0, min.y)
         img.AnchorPoint = Vector2.new(0, 0)
@@ -1478,7 +1460,7 @@ function ESP:_UpdateBox(entityType, id, min, max, onscreen)
 
     local isValid = entityType:IsValid(entityType.valid[id], id)
 
-    if onscreen and entityType.settings.box.enabled and isValid then
+    if onscreen and entityType.settings.box.enabled and isValid and min and max and min.x and min.y and max.x and max.y then
         box.Visible = true
         box.Transparency = entityType.settings.box.transparency
         box.Color = entityType.settings.box.color
@@ -1487,8 +1469,10 @@ function ESP:_UpdateBox(entityType, id, min, max, onscreen)
         local pos = Vector2.new(min.x, min.y)
         box.Position = pos
 
-        local length = max.x - min.x
-        local height = max.y - min.y
+        local length = math.max(4, max.x - min.x)
+        local height = math.max(4, max.y - min.y)
+        length = math.min(length, 500)
+        height = math.min(height, 500)
         local size = Vector2.new(length, height)
         box.Size = size
 
@@ -1532,13 +1516,18 @@ function ESP:_UpdateText(entityType, id, textType, min, max, onscreen)
 
         if textType == "distance" and character then
             local target = entityType.valid[id]
-            local targetPos
-            if target:IsA("Model") then
-                targetPos = target:GetPivot().Position
-            elseif target:IsA("BasePart") then
-                targetPos = target.Position
-            else
-                targetPos = target.Position
+            local targetPos = nil
+            
+            pcall(function()
+                if target:IsA("Model") then
+                    targetPos = target:GetPivot().Position
+                elseif target:IsA("BasePart") then
+                    targetPos = target.Position
+                end
+            end)
+            
+            if not targetPos then
+                targetPos = Vector3.new(0, 0, 0)
             end
             local distance = (character:GetPivot().Position - targetPos).Magnitude
             distance = math.round(distance)
@@ -1668,49 +1657,80 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                 local rightLeg = target:FindFirstChild('Right Leg')
 
                 if head and torso and leftArm and rightArm and leftLeg and rightLeg then
-                    local H = Camera:WorldToViewportPoint(head.Position)
-                    local UT = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, torso.Size.Y/4, 0)).Position)
-                    local LT = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, -torso.Size.Y/4, 0)).Position)
+                    local H, H_onscreen = Camera:WorldToViewportPoint(head.Position)
+                    local UT, UT_onscreen = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, torso.Size.Y/4, 0)).Position)
+                    local LT, LT_onscreen = Camera:WorldToViewportPoint((torso.CFrame * CFrame.new(0, -torso.Size.Y/4, 0)).Position)
 
                     local LA_Height = leftArm.Size.Y/2 - 0.2
-                    local LUA = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, LA_Height, 0)).Position)
-                    local LLA = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, -LA_Height, 0)).Position)
+                    local LUA, LUA_onscreen = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, LA_Height, 0)).Position)
+                    local LLA, LLA_onscreen = Camera:WorldToViewportPoint((leftArm.CFrame * CFrame.new(0, -LA_Height, 0)).Position)
 
                     local RA_Height = rightArm.Size.Y/2 - 0.2
-                    local RUA = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, RA_Height, 0)).Position)
-                    local RLA = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, -RA_Height, 0)).Position)
+                    local RUA, RUA_onscreen = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, RA_Height, 0)).Position)
+                    local RLA, RLA_onscreen = Camera:WorldToViewportPoint((rightArm.CFrame * CFrame.new(0, -RA_Height, 0)).Position)
 
                     local LL_Height = leftLeg.Size.Y/2 - 0.2
-                    local LUL = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, LL_Height, 0)).Position)
-                    local LLL = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, -LL_Height, 0)).Position)
+                    local LUL, LUL_onscreen = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, LL_Height, 0)).Position)
+                    local LLL, LLL_onscreen = Camera:WorldToViewportPoint((leftLeg.CFrame * CFrame.new(0, -LL_Height, 0)).Position)
 
                     local RL_Height = rightLeg.Size.Y/2 - 0.2
-                    local RUL = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, RL_Height, 0)).Position)
-                    local RLL = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, -RL_Height, 0)).Position)
+                    local RUL, RUL_onscreen = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, RL_Height, 0)).Position)
+                    local RLL, RLL_onscreen = Camera:WorldToViewportPoint((rightLeg.CFrame * CFrame.new(0, -RL_Height, 0)).Position)
 
-                    bones.Head_Spine.line.From = Vector2.new(H.X, H.Y)
-                    bones.Head_Spine.line.To = Vector2.new(UT.X, UT.Y)
-                    bones.Spine.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.Spine.line.To = Vector2.new(LT.X, LT.Y)
-                    bones.LeftArm.line.From = Vector2.new(LUA.X, LUA.Y)
-                    bones.LeftArm.line.To = Vector2.new(LLA.X, LLA.Y)
-                    bones.LeftArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.LeftArm_UpperTorso.line.To = Vector2.new(LUA.X, LUA.Y)
-                    bones.RightArm.line.From = Vector2.new(RUA.X, RUA.Y)
-                    bones.RightArm.line.To = Vector2.new(RLA.X, RLA.Y)
-                    bones.RightArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.RightArm_UpperTorso.line.To = Vector2.new(RUA.X, RUA.Y)
-                    bones.LeftLeg.line.From = Vector2.new(LUL.X, LUL.Y)
-                    bones.LeftLeg.line.To = Vector2.new(LLL.X, LLL.Y)
-                    bones.LeftLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
-                    bones.LeftLeg_LowerTorso.line.To = Vector2.new(LUL.X, LUL.Y)
-                    bones.RightLeg.line.From = Vector2.new(RUL.X, RUL.Y)
-                    bones.RightLeg.line.To = Vector2.new(RLL.X, RLL.Y)
-                    bones.RightLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
-                    bones.RightLeg_LowerTorso.line.To = Vector2.new(RUL.X, RUL.Y)
+                    if H.Z > 0 and UT.Z > 0 then
+                        bones.Head_Spine.line.From = Vector2.new(H.X, H.Y)
+                        bones.Head_Spine.line.To = Vector2.new(UT.X, UT.Y)
+                    else bones.Head_Spine.line.Visible = false end
+                    
+                    if UT.Z > 0 and LT.Z > 0 then
+                        bones.Spine.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.Spine.line.To = Vector2.new(LT.X, LT.Y)
+                    else bones.Spine.line.Visible = false end
+                    
+                    if LUA.Z > 0 and LLA.Z > 0 then
+                        bones.LeftArm.line.From = Vector2.new(LUA.X, LUA.Y)
+                        bones.LeftArm.line.To = Vector2.new(LLA.X, LLA.Y)
+                    else bones.LeftArm.line.Visible = false end
+                    
+                    if UT.Z > 0 and LUA.Z > 0 then
+                        bones.LeftArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.LeftArm_UpperTorso.line.To = Vector2.new(LUA.X, LUA.Y)
+                    else bones.LeftArm_UpperTorso.line.Visible = false end
+                    
+                    if RUA.Z > 0 and RLA.Z > 0 then
+                        bones.RightArm.line.From = Vector2.new(RUA.X, RUA.Y)
+                        bones.RightArm.line.To = Vector2.new(RLA.X, RLA.Y)
+                    else bones.RightArm.line.Visible = false end
+                    
+                    if UT.Z > 0 and RUA.Z > 0 then
+                        bones.RightArm_UpperTorso.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.RightArm_UpperTorso.line.To = Vector2.new(RUA.X, RUA.Y)
+                    else bones.RightArm_UpperTorso.line.Visible = false end
+                    
+                    if LUL.Z > 0 and LLL.Z > 0 then
+                        bones.LeftLeg.line.From = Vector2.new(LUL.X, LUL.Y)
+                        bones.LeftLeg.line.To = Vector2.new(LLL.X, LLL.Y)
+                    else bones.LeftLeg.line.Visible = false end
+                    
+                    if LT.Z > 0 and LUL.Z > 0 then
+                        bones.LeftLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
+                        bones.LeftLeg_LowerTorso.line.To = Vector2.new(LUL.X, LUL.Y)
+                    else bones.LeftLeg_LowerTorso.line.Visible = false end
+                    
+                    if RUL.Z > 0 and RLL.Z > 0 then
+                        bones.RightLeg.line.From = Vector2.new(RUL.X, RUL.Y)
+                        bones.RightLeg.line.To = Vector2.new(RLL.X, RLL.Y)
+                    else bones.RightLeg.line.Visible = false end
+                    
+                    if LT.Z > 0 and RUL.Z > 0 then
+                        bones.RightLeg_LowerTorso.line.From = Vector2.new(LT.X, LT.Y)
+                        bones.RightLeg_LowerTorso.line.To = Vector2.new(RUL.X, RUL.Y)
+                    else bones.RightLeg_LowerTorso.line.Visible = false end
 
                     for i, v in pairs(bones) do
-                        v.line.Visible = true
+                        if v.line.From ~= Vector2.new(0,0) and v.line.To ~= Vector2.new(0,0) then
+                            v.line.Visible = true
+                        end
                     end
                 else
                     for i, v in pairs(bones) do
@@ -1749,9 +1769,9 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                 local rightFoot = target:FindFirstChild('RightFoot')
 
                 if head and upperTorso and lowerTorso then
-                    local H = Camera:WorldToViewportPoint(head.Position)
-                    local UT = Camera:WorldToViewportPoint(upperTorso.Position)
-                    local LT = Camera:WorldToViewportPoint(lowerTorso.Position)
+                    local H, H_onscreen = Camera:WorldToViewportPoint(head.Position)
+                    local UT, UT_onscreen = Camera:WorldToViewportPoint(upperTorso.Position)
+                    local LT, LT_onscreen = Camera:WorldToViewportPoint(lowerTorso.Position)
 
                     local LUA = leftUpperArm and Camera:WorldToViewportPoint(leftUpperArm.Position)
                     local LLA = leftLowerArm and Camera:WorldToViewportPoint(leftLowerArm.Position)
@@ -1769,49 +1789,80 @@ function ESP:_UpdateSkeleton(entityType, id, min, max, onscreen)
                     local RLL = rightLowerLeg and Camera:WorldToViewportPoint(rightLowerLeg.Position)
                     local RF = rightFoot and Camera:WorldToViewportPoint(rightFoot.Position)
 
-                    bones.Head_UpperTorso.line.From = Vector2.new(H.X, H.Y)
-                    bones.Head_UpperTorso.line.To = Vector2.new(UT.X, UT.Y)
-                    bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
-                    bones.UpperTorso_LowerTorso.line.To = Vector2.new(LT.X, LT.Y)
+                    if H and UT and H.Z > 0 and UT.Z > 0 then
+                        bones.Head_UpperTorso.line.From = Vector2.new(H.X, H.Y)
+                        bones.Head_UpperTorso.line.To = Vector2.new(UT.X, UT.Y)
+                        bones.Head_UpperTorso.line.Visible = true
+                    else bones.Head_UpperTorso.line.Visible = false end
 
-                    if LUA and LLA and LH then
+                    if UT and LT and UT.Z > 0 and LT.Z > 0 then
+                        bones.UpperTorso_LowerTorso.line.From = Vector2.new(UT.X, UT.Y)
+                        bones.UpperTorso_LowerTorso.line.To = Vector2.new(LT.X, LT.Y)
+                        bones.UpperTorso_LowerTorso.line.Visible = true
+                    else bones.UpperTorso_LowerTorso.line.Visible = false end
+
+                    if LUA and LLA and LH and LUA.Z > 0 and LLA.Z > 0 and LH.Z > 0 then
                         bones.UpperTorso_LeftUpperArm.line.From = Vector2.new(UT.X, UT.Y)
                         bones.UpperTorso_LeftUpperArm.line.To = Vector2.new(LUA.X, LUA.Y)
+                        bones.UpperTorso_LeftUpperArm.line.Visible = true
                         bones.LeftUpperArm_LeftLowerArm.line.From = Vector2.new(LUA.X, LUA.Y)
                         bones.LeftUpperArm_LeftLowerArm.line.To = Vector2.new(LLA.X, LLA.Y)
+                        bones.LeftUpperArm_LeftLowerArm.line.Visible = true
                         bones.LeftLowerArm_LeftHand.line.From = Vector2.new(LLA.X, LLA.Y)
                         bones.LeftLowerArm_LeftHand.line.To = Vector2.new(LH.X, LH.Y)
+                        bones.LeftLowerArm_LeftHand.line.Visible = true
+                    else
+                        bones.UpperTorso_LeftUpperArm.line.Visible = false
+                        bones.LeftUpperArm_LeftLowerArm.line.Visible = false
+                        bones.LeftLowerArm_LeftHand.line.Visible = false
                     end
 
-                    if RUA and RLA and RH then
+                    if RUA and RLA and RH and RUA.Z > 0 and RLA.Z > 0 and RH.Z > 0 then
                         bones.UpperTorso_RightUpperArm.line.From = Vector2.new(UT.X, UT.Y)
                         bones.UpperTorso_RightUpperArm.line.To = Vector2.new(RUA.X, RUA.Y)
+                        bones.UpperTorso_RightUpperArm.line.Visible = true
                         bones.RightUpperArm_RightLowerArm.line.From = Vector2.new(RUA.X, RUA.Y)
                         bones.RightUpperArm_RightLowerArm.line.To = Vector2.new(RLA.X, RLA.Y)
+                        bones.RightUpperArm_RightLowerArm.line.Visible = true
                         bones.RightLowerArm_RightHand.line.From = Vector2.new(RLA.X, RLA.Y)
                         bones.RightLowerArm_RightHand.line.To = Vector2.new(RH.X, RH.Y)
+                        bones.RightLowerArm_RightHand.line.Visible = true
+                    else
+                        bones.UpperTorso_RightUpperArm.line.Visible = false
+                        bones.RightUpperArm_RightLowerArm.line.Visible = false
+                        bones.RightLowerArm_RightHand.line.Visible = false
                     end
 
-                    if LUL and LLL and LF then
+                    if LUL and LLL and LF and LUL.Z > 0 and LLL.Z > 0 and LF.Z > 0 then
                         bones.LowerTorso_LeftUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
                         bones.LowerTorso_LeftUpperLeg.line.To = Vector2.new(LUL.X, LUL.Y)
+                        bones.LowerTorso_LeftUpperLeg.line.Visible = true
                         bones.LeftUpperLeg_LeftLowerLeg.line.From = Vector2.new(LUL.X, LUL.Y)
                         bones.LeftUpperLeg_LeftLowerLeg.line.To = Vector2.new(LLL.X, LLL.Y)
+                        bones.LeftUpperLeg_LeftLowerLeg.line.Visible = true
                         bones.LeftLowerLeg_LeftFoot.line.From = Vector2.new(LLL.X, LLL.Y)
                         bones.LeftLowerLeg_LeftFoot.line.To = Vector2.new(LF.X, LF.Y)
+                        bones.LeftLowerLeg_LeftFoot.line.Visible = true
+                    else
+                        bones.LowerTorso_LeftUpperLeg.line.Visible = false
+                        bones.LeftUpperLeg_LeftLowerLeg.line.Visible = false
+                        bones.LeftLowerLeg_LeftFoot.line.Visible = false
                     end
 
-                    if RUL and RLL and RF then
+                    if RUL and RLL and RF and RUL.Z > 0 and RLL.Z > 0 and RF.Z > 0 then
                         bones.LowerTorso_RightUpperLeg.line.From = Vector2.new(LT.X, LT.Y)
                         bones.LowerTorso_RightUpperLeg.line.To = Vector2.new(RUL.X, RUL.Y)
+                        bones.LowerTorso_RightUpperLeg.line.Visible = true
                         bones.RightUpperLeg_RightLowerLeg.line.From = Vector2.new(RUL.X, RUL.Y)
                         bones.RightUpperLeg_RightLowerLeg.line.To = Vector2.new(RLL.X, RLL.Y)
+                        bones.RightUpperLeg_RightLowerLeg.line.Visible = true
                         bones.RightLowerLeg_RightFoot.line.From = Vector2.new(RLL.X, RLL.Y)
                         bones.RightLowerLeg_RightFoot.line.To = Vector2.new(RF.X, RF.Y)
-                    end
-
-                    for i, v in pairs(bones) do
-                        v.line.Visible = true
+                        bones.RightLowerLeg_RightFoot.line.Visible = true
+                    else
+                        bones.LowerTorso_RightUpperLeg.line.Visible = false
+                        bones.RightUpperLeg_RightLowerLeg.line.Visible = false
+                        bones.RightLowerLeg_RightFoot.line.Visible = false
                     end
                 else
                     for i, v in pairs(bones) do
@@ -1843,10 +1894,11 @@ function ESP:_UpdateImageBox(entityType, id, min, max, onscreen)
     image.Visible = onscreen and entityType.settings.imagebox.enabled and isValid
 
     if onscreen and entityType.settings.imagebox.enabled and isValid then
-
-        local size = Vector2.new(max.x - min.x, max.y - min.y)
-        image.Size = UDim2.new(0, size.X, 0, size.Y)
-        image.Position = UDim2.new(0, min.x, 0, min.y)
+        if min and max and min.x and min.y and max.x and max.y then
+            local size = Vector2.new(math.max(4, max.x - min.x), math.max(4, max.y - min.y))
+            image.Size = UDim2.new(0, size.X, 0, size.Y)
+            image.Position = UDim2.new(0, min.x, 0, min.y)
+        end
     end
 end
 
@@ -2022,11 +2074,44 @@ function ESP:_RemoveAllESP(entityType, id)
 end
 
 function ESP:_HandleBox(entityType, id, target)
+    if not target or not target.Parent then
+        if entityType.entities.box[id] then
+            entityType.entities.box[id].Visible = false
+        end
+        if entityType.entities.boxoutline[id] then
+            entityType.entities.boxoutline[id].Visible = false
+        end
+        return
+    end
+
     local min = entityType.mins[id]
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    if not entityType.settings.box.enabled then
+    local targetPos = nil
+    
+    pcall(function()
+        if target:IsA("Model") then
+            targetPos = target:GetPivot().Position
+        elseif target:IsA("BasePart") then
+            targetPos = target.Position
+        end
+    end)
+    
+    if not targetPos then
+        if entityType.entities.box[id] then
+            entityType.entities.box[id].Visible = false
+        end
+        if entityType.entities.boxoutline[id] then
+            entityType.entities.boxoutline[id].Visible = false
+        end
+        return
+    end
+    
+    local distance = (targetPos - Camera.CFrame.Position).Magnitude
+    local tooFar = distance > 300
+
+    if not entityType.settings.box.enabled or tooFar then
         if entityType.entities.box[id] then
             entityType.entities.box[id].Visible = false
         end
@@ -2110,11 +2195,37 @@ function ESP:_HandleHealthbar(entityType, id, target)
 end
 
 function ESP:_HandleSkeleton(entityType, id, target)
+    if not target or not target.Parent then
+        return
+    end
+
     local min = entityType.mins[id]
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    if not entityType.settings.skeleton.enabled then
+    local targetPos = nil
+    
+    pcall(function()
+        if target:IsA("Model") then
+            targetPos = target:GetPivot().Position
+        elseif target:IsA("BasePart") then
+            targetPos = target.Position
+        end
+    end)
+    
+    if not targetPos then
+        if entityType.entities.skeleton[id] then
+            for _, bone in pairs(entityType.entities.skeleton[id]) do
+                if bone and bone.line then bone.line.Visible = false end
+            end
+        end
+        return
+    end
+    
+    local distance = (targetPos - Camera.CFrame.Position).Magnitude
+    local tooFar = distance > 300
+
+    if not entityType.settings.skeleton.enabled or tooFar then
         if entityType.entities.skeleton[id] then
             for _, bone in pairs(entityType.entities.skeleton[id]) do
                 if bone and bone.line then bone.line.Visible = false end
@@ -2131,11 +2242,35 @@ function ESP:_HandleSkeleton(entityType, id, target)
 end
 
 function ESP:_HandleImageBox(entityType, id, target)
+    if not target or not target.Parent then
+        return
+    end
+
     local min = entityType.mins[id]
     local max = entityType.maxes[id]
     local onscreen = entityType.onscreens[id]
 
-    if not entityType.settings.imagebox.enabled then
+    local targetPos = nil
+    
+    pcall(function()
+        if target:IsA("Model") then
+            targetPos = target:GetPivot().Position
+        elseif target:IsA("BasePart") then
+            targetPos = target.Position
+        end
+    end)
+    
+    if not targetPos then
+        if entityType.entities.imagebox[id] then
+            entityType.entities.imagebox[id].Visible = false
+        end
+        return
+    end
+    
+    local distance = (targetPos - Camera.CFrame.Position).Magnitude
+    local tooFar = distance > 300
+
+    if not entityType.settings.imagebox.enabled or tooFar then
         if entityType.entities.imagebox[id] then
             entityType.entities.imagebox[id].Visible = false
         end
@@ -2158,17 +2293,23 @@ function ESP:_HandleOOFArrows(entityType, id, target)
         return
     end
 
-    local targetPos
-    if entityType.isPart[id] then
-        targetPos = target.Position
-    else
-        local hrp = target:FindFirstChild("HumanoidRootPart")
-        if not hrp then
-            local arrow = ImageManager:GetImage("oofarrow_" .. id)
-            if arrow then arrow.Visible = false end
-            return
+    local targetPos = nil
+    
+    pcall(function()
+        if entityType.isPart[id] then
+            targetPos = target.Position
+        else
+            local hrp = target:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                targetPos = hrp.Position
+            end
         end
-        targetPos = hrp.Position
+    end)
+    
+    if not targetPos then
+        local arrow = ImageManager:GetImage("oofarrow_" .. id)
+        if arrow then arrow.Visible = false end
+        return
     end
 
     if not character or not character:FindFirstChild("HumanoidRootPart") then
@@ -2336,7 +2477,7 @@ function ESP:_CreateAdornment(part, adornType, color, trans, zIndex, sizeOffset,
     adorn.ZIndex = zIndex
     adorn.Adornee = part
     adorn.Color3 = color
-    adorn.Transparency = math.clamp(trans or 0, 0, 1)
+    adorn.Transparency = trans or 0
 
     if extra.Shading then
         pcall(function()
@@ -2344,18 +2485,26 @@ function ESP:_CreateAdornment(part, adornType, color, trans, zIndex, sizeOffset,
         end)
     end
 
-    adorn.Parent = part
+    -- Parent to CoreGui folder so adornments are hidden from workspace scanners.
+    -- The Adornee property keeps them visually attached to the part.
+    if not self.chamsContainer or not self.chamsContainer.Parent then
+        self.chamsContainer = Instance.new("Folder")
+        self.chamsContainer.Name = "RobloxGui"  -- blend in with existing CoreGui children
+        self.chamsContainer.Parent = CoreGui
+    end
+    adorn.Parent = self.chamsContainer
     return adorn
 end
 
 function ESP:_RemoveAdorns(part)
     if not part then return end
-    local children = part:GetChildren()
-
-    for i = 1, #children do
-        local obj = children[i]
-        if obj.Name == "Chams" or obj.Name == "Glow" then
-            obj:Destroy()
+    -- Adornments now live in chamsContainer, not as children of the part.
+    -- Search the container and destroy any whose Adornee matches this part.
+    if self.chamsContainer and self.chamsContainer.Parent then
+        for _, obj in ipairs(self.chamsContainer:GetChildren()) do
+            if (obj.Name == "Chams" or obj.Name == "Glow") and obj.Adornee == part then
+                obj:Destroy()
+            end
         end
     end
 end
@@ -2410,9 +2559,6 @@ function ESP:_UpdateChams(entityType, id, target)
     end
     entityType.entities.chams[id] = {}
 
-    local xrayShading
-    pcall(function() xrayShading = Enum.AdornShading.XRayShaded end)
-
     for _, part in pairs(target:GetChildren()) do
         if not part:IsA("BasePart") or part.Transparency >= 1 then continue end
 
@@ -2421,19 +2567,14 @@ function ESP:_UpdateChams(entityType, id, target)
         local isHead = part.Name == "Head" or part.Name == "FakeHead"
 
         if doGlow then
-            local gc = Color3.new(
-                math.clamp(glowColor.R * 5, 0, 1),
-                math.clamp(glowColor.G * 5, 0, 1),
-                math.clamp(glowColor.B * 5, 0, 1)
-            )
             local glowAdorn = self:_CreateAdornment(
                 part,
                 isHead and "Cylinder" or "Box",
-                gc,
-                0.5,  
-                9,
-                Vector3.new(0.08, 0.08, 0.08),
-                xrayShading and {Shading = xrayShading} or {}
+                Color3.new(glowColor.R * 5, glowColor.G * 5, glowColor.B * 5),
+                -1,
+                isHead and 10 or 9,
+                Vector3.new(0.03, 0.03, 0.03),
+                {Shading = Enum.AdornShading.XRayShaded}
             )
             table.insert(entityType.entities.chams[id], glowAdorn)
         end
@@ -2580,7 +2721,7 @@ function ESP:Start()
             if not entityType.enabled then continue end
             for id, target in pairs(entityType.valid) do
                 if entityType:IsValid(target, id) then
-                    pcall(function() self:_UpdateChams(entityType, id, target) end)
+                    self:_UpdateChams(entityType, id, target)
                 end
             end
         end
@@ -2605,7 +2746,7 @@ function ESP:Start()
                 if not entityType.enabled then continue end
                 for id, target in pairs(entityType.valid) do
                     if entityType:IsValid(target, id) then
-                        pcall(function() self:_UpdateChams(entityType, id, target) end)
+                        self:_UpdateChams(entityType, id, target)
                     end
                 end
             end
@@ -2629,6 +2770,12 @@ function ESP:Stop()
     end
 
     ImageManager:Cleanup()
+
+    -- Clean up the CoreGui chams container
+    if self.chamsContainer and self.chamsContainer.Parent then
+        self.chamsContainer:Destroy()
+        self.chamsContainer = nil
+    end
 end
 
 ESP:CreateEntityType("players")
